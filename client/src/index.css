@@ -301,6 +301,15 @@ h1 em, h2 em { color: var(--aqua-deep); font-style: normal; }
 .receive-address code { overflow: hidden; color: var(--ink); font-family: 'Space Grotesk', sans-serif; font-size: 12px; text-overflow: ellipsis; direction: ltr; white-space: nowrap; }
 .receive-address button { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; color: var(--aqua-deep); background: transparent; font-size: 11px; font-weight: 800; cursor: pointer; }
 .network-warning { margin-top: 18px; padding: 11px 12px; background: rgba(184,222,212,.23); }
+.binance-deposit-card { margin-top: 18px; padding: 17px; border: 1px solid rgba(223,198,154,.62); background: rgba(241,230,208,.34); }
+.binance-deposit-heading { display: flex; align-items: center; gap: 10px; }
+.binance-mark { width: 27px; height: 27px; display: grid; place-items: center; border-radius: 50%; color: #6e552a; background: var(--sand); font-family: 'Space Grotesk', sans-serif; font-size: 13px; font-weight: 700; }
+.binance-deposit-heading strong, .binance-deposit-heading small { display: block; }
+.binance-deposit-heading strong { color: var(--ink); font-size: 12px; }
+.binance-deposit-heading small { margin-top: 2px; color: #8a7a5d; font-size: 10px; }
+.binance-deposit-card ol { display: grid; gap: 6px; margin: 14px 0 0; padding: 0 20px 0 0; color: #6f7b86; font-size: 10px; line-height: 1.65; }
+.binance-deposit-card b { color: var(--ink); font-family: 'Space Grotesk', sans-serif; font-weight: 700; }
+.binance-open-link { display: inline-flex; align-items: center; gap: 7px; margin-top: 13px; color: #8b6c37; font-size: 10px; font-weight: 800; }
 .explorer-link { display: inline-flex; align-items: center; gap: 7px; margin-top: 18px; color: var(--aqua-deep); font-size: 11px; font-weight: 800; }
 .send-panel { display: grid; gap: 15px; }
 .send-panel > div:first-child { margin-bottom: 5px; }
