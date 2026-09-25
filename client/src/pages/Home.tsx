@@ -48,8 +48,8 @@ function BottomNav() {
   return (
     <nav className="bottom-nav" aria-label="التنقل الرئيسي">
       <Link href="/" className="bottom-nav-link"><HomeIcon size={18} /><span>الرئيسية</span></Link>
-      <a href="/#story" className="bottom-nav-link"><Sparkles size={17} /><span>قصتنا</span></a>
-      <a href="/#rhythm" className="bottom-nav-link"><MessageCircle size={17} /><span>كيف نساعدك</span></a>
+      <a href={`${import.meta.env.BASE_URL}#story`} className="bottom-nav-link"><Sparkles size={17} /><span>قصتنا</span></a>
+      <a href={`${import.meta.env.BASE_URL}#rhythm`} className="bottom-nav-link"><MessageCircle size={17} /><span>كيف نساعدك</span></a>
       <Link href="/wallet" className="bottom-nav-link"><WalletCards size={17} /><span>المحفظة</span></Link>
       <Link href="/login" className="bottom-nav-link"><LogIn size={17} /><span>تسجيل الدخول</span></Link>
       <Link href="/signup" className="bottom-nav-link bottom-nav-cta"><ArrowUpLeft size={17} /><span>إنشاء حساب</span></Link>
@@ -85,7 +85,7 @@ export default function Home() {
             <p className="hero-description">نورة تمنحك مساحة واضحة لإدارة أصولك الرقمية، متابعة شبكاتك، واتخاذ قرارات استثمارية أكثر وعياً.</p>
             <div className="hero-actions">
               <Link href="/wallet" className="button button-accent">افتح محفظتك <ArrowUpLeft size={18} /></Link>
-              <a href="#story" className="button button-ghost">كيف نعمل <ArrowLeft size={17} /></a>
+      <a href={`${import.meta.env.BASE_URL}#story`} className="button button-ghost">كيف نعمل <ArrowLeft size={17} /></a>
             </div>
             <div className="trust-row"><span className="avatar-stack"><i>س</i><i>ل</i><i>ن</i></span><span>بيانات واضحة، محافظ غير وصائية، و<strong>تحكمك يبقى معك.</strong></span></div>
           </div>
@@ -169,7 +169,7 @@ export function SignupPage() {
       password,
       options: {
         data: { full_name: name },
-        emailRedirectTo: `${window.location.origin}/login`,
+        emailRedirectTo: `${window.location.origin}${import.meta.env.BASE_URL}login`,
       },
     });
     setIsSubmitting(false);

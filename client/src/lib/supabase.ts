@@ -1,15 +1,11 @@
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn("Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.");
-}
+const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined) ?? "https://cjmutyofskqaershxkko.supabase.co";
+const supabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) ?? "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNqbXV0eW9mc2txYWVyc2h4a2tvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAyMzA4MDAsImV4cCI6MjEwNTgwNjgwMH0.fxPBgvf3O2jk1uVIFZgKof5HIkzVhN4kYb361ob1D8U";
 
 export const supabase = createClient(
-  supabaseUrl ?? "https://placeholder.supabase.co",
-  supabaseAnonKey ?? "placeholder-anon-key",
+  supabaseUrl,
+  supabaseAnonKey,
   {
     auth: {
       persistSession: true,

@@ -71,8 +71,7 @@ const ERC20_ABI = [
 let walletConnectProviderPromise: Promise<Eip1193Provider> | null = null;
 
 export async function getWalletConnectProvider() {
-  const projectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID as string | undefined;
-  if (!projectId) throw new Error("WalletConnect غير مهيأ بعد.");
+  const projectId = (import.meta.env.VITE_WALLETCONNECT_PROJECT_ID as string | undefined) ?? "1e303f141fd5e654983c342b597735fb";
 
   if (!walletConnectProviderPromise) {
     walletConnectProviderPromise = EthereumProvider.init({
