@@ -1,25 +1,159 @@
-import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
-import { Streamdown } from 'streamdown';
+import { useState } from "react";
+import { Link, useLocation } from "wouter";
+import { toast } from "sonner";
+import {
+  ArrowLeft,
+  ArrowUpLeft,
+  ArrowUpRight,
+  Check,
+  Eye,
+  EyeOff,
+  Instagram,
+  LockKeyhole,
+  Mail,
+  Menu,
+  Sparkles,
+  Twitter,
+  UserRound,
+  X,
+} from "lucide-react";
 
-/**
- * All content in this page are only for example, replace with your own feature implementation
- * When building pages, remember your instructions in Frontend Best Practices, Design Guide and Common Pitfalls
- */
-export default function Home() {
-  // If theme is switchable in App.tsx, we can implement theme toggling like this:
-  // const { theme, toggleTheme } = useTheme();
+const benefits = [
+  "مساحة واحدة لأفكارك ومشاريعك",
+  "تنظيم بسيط يحافظ على تركيزك",
+  "تجربة مصممة لتشبه إيقاعك",
+];
+
+function Logo({ light = false }: { light?: boolean }) {
+  return (
+    <Link href="/" className={`brand ${light ? "brand-light" : ""}`} aria-label="Noura - الصفحة الرئيسية">
+      <span className="brand-mark" aria-hidden="true">
+        <span />
+        <span />
+        <span />
+      </span>
+      <span className="brand-name">noura</span>
+    </Link>
+  );
+}
+
+function Header() {
+  const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <main>
-        {/* Example: lucide-react for icons */}
-        <Loader2 className="animate-spin" />
-        Example Page
-        {/* Example: Streamdown for markdown rendering */}
-        <Streamdown>Any **markdown** content</Streamdown>
-        <Button variant="default">Example Button</Button>
-      </main>
+    <header className="site-header">
+      <div className="shell header-inner">
+        <Logo />
+        <nav className={`nav-links ${menuOpen ? "nav-open" : ""}`} aria-label="التنقل الرئيسي">
+          <a href="#story" onClick={() => setMenuOpen(false)}>قصتنا</a>
+          <a href="#rhythm" onClick={() => setMenuOpen(false)}>كيف نساعدك</a>
+          <a href="#contact" onClick={() => setMenuOpen(false)}>تواصل معنا</a>
+          <div className="mobile-nav-action">
+            <Link href="/login" onClick={() => setMenuOpen(false)}>تسجيل الدخول</Link>
+          </div>
+        </nav>
+        <div className="header-actions">
+          <Link href="/login" className="text-link">تسجيل الدخول</Link>
+          <Link href="/signup" className="button button-dark button-small">
+            ابدأ الآن <ArrowUpLeft size={16} />
+          </Link>
+        </div>
+        <button
+          className="menu-button"
+          aria-label={menuOpen ? "إغلاق القائمة" : "فتح القائمة"}
+          aria-expanded={menuOpen}
+          onClick={() => setMenuOpen(!menuOpen)}
+        >
+          {menuOpen ? <X size={22} /> : <Menu size={22} />}
+        </button>
+      </div>
+    </header>
+  );
+}
+
+function OrbitalArtwork() {
+  return (
+    <div className="orbital-art" aria-label="تركيبة زخرفية مستوحاة من الهلال">
+      <div className="orbital-glow" />
+      <div className="orbit orbit-one" />
+      <div className="orbit orbit-two" />
+      <div className="orbit orbit-three" />
+      <div className="moon-shape" />
+      <div className="art-star star-one">✦</div>
+      <div className="art-star star-two">✧</div>
+      <div className="art-star star-three">·</div>
+      <div className="art-caption">نحو مساحة<br /><strong>تشبهك</strong></div>
     </div>
   );
+}
+
+export default function Home() {
+  return (
+    <div className="site-page" dir="rtl">
+      <Header />
+      <main>
+        <section className="hero-section shell">
+          <div className="hero-copy reveal-up">
+            <div className="eyebrow"><Sparkles size={14} /> مساحة أهدأ. يوم أوضح.</div>
+            <h1>رتّب أفكارك،<br /><em>واصنع مساحتك.</em></h1>
+            <p className="hero-description">نورة هي المساحة الرقمية التي تمنح أفكارك وقتها، ومشاريعك مكانها، ويومك إيقاعه الخاص.</p>
+            <div className="hero-actions">
+              <Link href="/signup" className="button button-accent">أنشئ مساحتك <ArrowUpLeft size={18} /></Link>
+              <a href="#story" className="button button-ghost">اكتشف نورة <ArrowLeft size={17} /></a>
+            </div>
+            <div className="trust-row"><span className="avatar-stack"><i>س</i><i>ل</i><i>ن</i></span><span>انضم إلى أكثر من <strong>12,000</strong> شخص يبدأون يومهم بوضوح.</span></div>
+          </div>
+          <div className="hero-visual reveal-up delay-one"><OrbitalArtwork /></div>
+        </section>
+
+        <section id="story" className="story-section shell">
+          <div className="section-label"><span>01</span><span>لماذا نورة؟</span></div>
+          <div className="story-grid">
+            <h2>كل فكرة تستحق<br /><span>مكاناً جميلاً.</span></h2>
+            <div className="story-body"><p>نحن نؤمن أن التنظيم ليس أن تملأ يومك، بل أن تترك مساحة لما يهمك حقاً. صممنا نورة لتكون هادئة، مرنة، وقريبة منك.</p><Link href="/signup" className="inline-link">ابدأ رحلتك <ArrowUpLeft size={16} /></Link></div>
+          </div>
+        </section>
+
+        <section id="rhythm" className="rhythm-section">
+          <div className="shell rhythm-grid">
+            <div className="rhythm-intro"><div className="section-label light-label"><span>02</span><span>إيقاعك الخاص</span></div><h2>أقل ضجيجاً.<br /><em>أكثر حضوراً.</em></h2><p>ثلاثة أشياء بسيطة تجعل كل يوم أخف.</p></div>
+            <div className="benefits-list">{benefits.map((benefit, index) => <div className="benefit" key={benefit}><span className="benefit-number">0{index + 1}</span><span>{benefit}</span><Check size={17} /></div>)}</div>
+          </div>
+        </section>
+
+        <section id="contact" className="final-cta shell"><div><div className="eyebrow"><Sparkles size={14} /> البداية من هنا</div><h2>جاهز لمساحة<br /><em>تشبهك؟</em></h2></div><Link href="/signup" className="button button-accent button-large">إنشاء حساب مجاني <ArrowUpLeft size={18} /></Link></section>
+      </main>
+      <footer className="site-footer shell"><Logo /><p>نصنع مساحات أهدأ للأفكار الجميلة.</p><div className="footer-social"><a href="#contact" aria-label="Instagram"><Instagram size={17} /></a><a href="#contact" aria-label="Twitter"><Twitter size={17} /></a></div><span className="copyright">© 2026 noura</span></footer>
+    </div>
+  );
+}
+
+function AuthShell({ children, title, description, mode }: { children: React.ReactNode; title: string; description: string; mode: "login" | "signup" }) {
+  const [, setLocation] = useLocation();
+  return (
+    <div className="auth-page" dir="rtl">
+      <div className="auth-aside"><div className="auth-aside-top"><Logo light /><Link href="/" className="back-home"><ArrowLeft size={16} /> العودة للرئيسية</Link></div><div className="auth-aside-content"><div className="eyebrow eyebrow-light"><Sparkles size={14} /> مساحة أهدأ. يوم أوضح.</div><h1>ابدأ من المكان<br /><em>الذي يشبهك.</em></h1><p>خطوة صغيرة اليوم، ومساحة أوسع لأفكارك غداً.</p><div className="aside-stamp"><span>ن</span><div><strong>noura</strong><small>your softer space</small></div></div></div><div className="auth-aside-footer">تصميم يترك مجالاً لما يهمك حقاً <span>✦</span></div></div>
+      <main className="auth-main"><div className="auth-card"><div className="mobile-auth-logo"><Logo /></div><div className="auth-heading"><span className="auth-kicker">{mode === "login" ? "مرحباً بعودتك" : "أهلاً بك في نورة"}</span><h2>{title}</h2><p>{description}</p></div>{children}<div className="auth-switch">{mode === "login" ? <>ليس لديك حساب؟ <Link href="/signup">أنشئ حساباً مجانياً</Link></> : <>لديك حساب بالفعل؟ <Link href="/login">تسجيل الدخول</Link></>}</div><button className="back-link" onClick={() => setLocation("/")}><ArrowLeft size={15} /> العودة للصفحة الرئيسية</button></div></main>
+    </div>
+  );
+}
+
+function PasswordField({ label, id, value, onChange, placeholder }: { label: string; id: string; value: string; onChange: (value: string) => void; placeholder: string }) {
+  const [visible, setVisible] = useState(false);
+  return <label className="field"><span>{label}</span><div className="input-wrap"><LockKeyhole size={17} /><input id={id} type={visible ? "text" : "password"} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} required /><button type="button" className="input-action" onClick={() => setVisible(!visible)} aria-label={visible ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}>{visible ? <EyeOff size={17} /> : <Eye size={17} />}</button></div></label>;
+}
+
+export function LoginPage() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const submit = (event: React.FormEvent) => { event.preventDefault(); toast.success("تم تسجيل الدخول بنجاح", { description: "مرحباً بعودتك إلى نورة." }); };
+  return <AuthShell mode="login" title="تسجيل الدخول" description="أدخل بياناتك للعودة إلى مساحتك."><form className="auth-form" onSubmit={submit}><label className="field"><span>البريد الإلكتروني</span><div className="input-wrap"><Mail size={17} /><input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" dir="ltr" required /></div></label><PasswordField label="كلمة المرور" id="login-password" value={password} onChange={setPassword} placeholder="••••••••" /><div className="form-row"><label className="check-label"><input type="checkbox" /> <span>تذكرني</span></label><a href="#forgot" onClick={(event) => { event.preventDefault(); toast.info("سنرسل لك رابط استعادة كلمة المرور قريباً."); }}>نسيت كلمة المرور؟</a></div><button className="button button-dark submit-button" type="submit">تسجيل الدخول <ArrowUpLeft size={17} /></button></form><div className="auth-divider"><span>أو تابع باستخدام</span></div><button className="social-button" onClick={() => toast.info("تسجيل الدخول بواسطة Google سيكون متاحاً قريباً.")}><span className="google-mark">G</span> المتابعة باستخدام Google</button></AuthShell>;
+}
+
+export function SignupPage() {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const submit = (event: React.FormEvent) => { event.preventDefault(); toast.success("تم إنشاء حسابك", { description: "أهلاً بك في مساحتك الجديدة." }); };
+  return <AuthShell mode="signup" title="إنشاء حساب" description="أنشئ مساحتك المجانية في أقل من دقيقة."><form className="auth-form" onSubmit={submit}><label className="field"><span>الاسم الكامل</span><div className="input-wrap"><UserRound size={17} /><input type="text" value={name} onChange={(event) => setName(event.target.value)} placeholder="مثلاً: نور أحمد" required /></div></label><label className="field"><span>البريد الإلكتروني</span><div className="input-wrap"><Mail size={17} /><input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" dir="ltr" required /></div></label><PasswordField label="كلمة المرور" id="signup-password" value={password} onChange={setPassword} placeholder="8 أحرف على الأقل" /><label className="check-label terms"><input type="checkbox" required /> <span>أوافق على <a href="#terms">الشروط والأحكام</a> وسياسة الخصوصية.</span></label><button className="button button-accent submit-button" type="submit">إنشاء حساب مجاني <ArrowUpLeft size={17} /></button></form><div className="auth-divider"><span>أو تابع باستخدام</span></div><button className="social-button" onClick={() => toast.info("التسجيل بواسطة Google سيكون متاحاً قريباً.")}><span className="google-mark">G</span> التسجيل باستخدام Google</button></AuthShell>;
 }
