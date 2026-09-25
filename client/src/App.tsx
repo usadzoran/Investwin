@@ -6,6 +6,7 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import Home, { LoginPage, SignupPage } from "./pages/Home";
 import NotFound from "./pages/NotFound";
 import WalletPage from "./pages/Wallet";
+import AdminPage from "./pages/Admin";
 
 function Router() {
   return (
@@ -14,6 +15,7 @@ function Router() {
       <Route path="/login" component={LoginPage} />
       <Route path="/signup" component={SignupPage} />
       <Route path="/wallet" component={WalletPage} />
+      <Route path="/admin" component={AdminPage} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>
