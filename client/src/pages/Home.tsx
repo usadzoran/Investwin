@@ -8,14 +8,15 @@ import {
   Check,
   Eye,
   EyeOff,
+  Home as HomeIcon,
   Instagram,
   LockKeyhole,
+  LogIn,
   Mail,
-  Menu,
+  MessageCircle,
   Sparkles,
   Twitter,
   UserRound,
-  X,
 } from "lucide-react";
 import { getSupabaseErrorMessage, supabase } from "@/lib/supabase";
 
@@ -39,36 +40,24 @@ function Logo({ light = false }: { light?: boolean }) {
 }
 
 function Header() {
-  const [menuOpen, setMenuOpen] = useState(false);
-
   return (
     <header className="site-header">
       <div className="shell header-inner">
         <Logo />
-        <nav className={`nav-links ${menuOpen ? "nav-open" : ""}`} aria-label="التنقل الرئيسي">
-          <a href="#story" onClick={() => setMenuOpen(false)}>قصتنا</a>
-          <a href="#rhythm" onClick={() => setMenuOpen(false)}>كيف نساعدك</a>
-          <a href="#contact" onClick={() => setMenuOpen(false)}>تواصل معنا</a>
-          <div className="mobile-nav-action">
-            <Link href="/login" onClick={() => setMenuOpen(false)}>تسجيل الدخول</Link>
-          </div>
-        </nav>
-        <div className="header-actions">
-          <Link href="/login" className="text-link">تسجيل الدخول</Link>
-          <Link href="/signup" className="button button-dark button-small">
-            ابدأ الآن <ArrowUpLeft size={16} />
-          </Link>
-        </div>
-        <button
-          className="menu-button"
-          aria-label={menuOpen ? "إغلاق القائمة" : "فتح القائمة"}
-          aria-expanded={menuOpen}
-          onClick={() => setMenuOpen(!menuOpen)}
-        >
-          {menuOpen ? <X size={22} /> : <Menu size={22} />}
-        </button>
       </div>
     </header>
+  );
+}
+
+function BottomNav() {
+  return (
+    <nav className="bottom-nav" aria-label="التنقل الرئيسي">
+      <Link href="/" className="bottom-nav-link"><HomeIcon size={18} /><span>الرئيسية</span></Link>
+      <a href="/#story" className="bottom-nav-link"><Sparkles size={17} /><span>قصتنا</span></a>
+      <a href="/#rhythm" className="bottom-nav-link"><MessageCircle size={17} /><span>كيف نساعدك</span></a>
+      <Link href="/login" className="bottom-nav-link"><LogIn size={17} /><span>تسجيل الدخول</span></Link>
+      <Link href="/signup" className="bottom-nav-link bottom-nav-cta"><ArrowUpLeft size={17} /><span>إنشاء حساب</span></Link>
+    </nav>
   );
 }
 
@@ -125,6 +114,7 @@ export default function Home() {
         <section id="contact" className="final-cta shell"><div><div className="eyebrow"><Sparkles size={14} /> البداية من هنا</div><h2>جاهز لمساحة<br /><em>تشبهك؟</em></h2></div><Link href="/signup" className="button button-accent button-large">إنشاء حساب مجاني <ArrowUpLeft size={18} /></Link></section>
       </main>
       <footer className="site-footer shell"><Logo /><p>نصنع مساحات أهدأ للأفكار الجميلة.</p><div className="footer-social"><a href="#contact" aria-label="Instagram"><Instagram size={17} /></a><a href="#contact" aria-label="Twitter"><Twitter size={17} /></a></div><span className="copyright">© 2026 noura</span></footer>
+      <BottomNav />
     </div>
   );
 }
@@ -135,6 +125,7 @@ function AuthShell({ children, title, description, mode }: { children: React.Rea
     <div className="auth-page" dir="rtl">
       <div className="auth-aside"><div className="auth-aside-top"><Logo light /><Link href="/" className="back-home"><ArrowLeft size={16} /> العودة للرئيسية</Link></div><div className="auth-aside-content"><div className="eyebrow eyebrow-light"><Sparkles size={14} /> مساحة أهدأ. يوم أوضح.</div><h1>ابدأ من المكان<br /><em>الذي يشبهك.</em></h1><p>خطوة صغيرة اليوم، ومساحة أوسع لأفكارك غداً.</p><div className="aside-stamp"><span>ن</span><div><strong>noura</strong><small>your softer space</small></div></div></div><div className="auth-aside-footer">تصميم يترك مجالاً لما يهمك حقاً <span>✦</span></div></div>
       <main className="auth-main"><div className="auth-card"><div className="mobile-auth-logo"><Logo /></div><div className="auth-heading"><span className="auth-kicker">{mode === "login" ? "مرحباً بعودتك" : "أهلاً بك في نورة"}</span><h2>{title}</h2><p>{description}</p></div>{children}<div className="auth-switch">{mode === "login" ? <>ليس لديك حساب؟ <Link href="/signup">أنشئ حساباً مجانياً</Link></> : <>لديك حساب بالفعل؟ <Link href="/login">تسجيل الدخول</Link></>}</div><button className="back-link" onClick={() => setLocation("/")}><ArrowLeft size={15} /> العودة للصفحة الرئيسية</button></div></main>
+      <BottomNav />
     </div>
   );
 }

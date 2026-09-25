@@ -34,7 +34,7 @@ button { border: 0; }
 ::selection { color: var(--ink); background: var(--sand); }
 
 .shell { width: min(1160px, calc(100% - 64px)); margin-inline: auto; }
-.site-page { overflow: hidden; background: var(--cream); }
+.site-page { overflow: hidden; background: var(--cream); padding-bottom: 88px; }
 .site-header { position: relative; z-index: 10; padding: 27px 0; }
 .header-inner { display: flex; align-items: center; justify-content: space-between; gap: 36px; }
 .brand { display: inline-flex; align-items: center; gap: 10px; direction: ltr; font-family: 'Space Grotesk', sans-serif; }
@@ -62,6 +62,12 @@ button { border: 0; }
 .button-ghost { color: var(--ink); padding-inline: 0; }
 .button-ghost:hover { color: var(--aqua-deep); }
 .menu-button, .mobile-nav-action { display: none; }
+.bottom-nav { position: fixed; z-index: 50; right: 50%; bottom: max(14px, env(safe-area-inset-bottom)); width: min(720px, calc(100% - 24px)); display: flex; align-items: stretch; justify-content: space-around; gap: 4px; padding: 8px; border: 1px solid rgba(255,255,255,.6); border-radius: 18px; background: rgba(251,250,247,.92); box-shadow: 0 14px 34px rgba(17,29,45,.16); backdrop-filter: blur(18px); transform: translateX(50%); }
+.bottom-nav-link { min-width: 0; flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 10px 12px; border-radius: 11px; color: #6c7a89; font-size: 11px; font-weight: 700; white-space: nowrap; transition: color .2s ease, background .2s ease, transform .16s ease; }
+.bottom-nav-link svg { color: var(--aqua-deep); }
+.bottom-nav-link:hover { color: var(--ink); background: rgba(241,230,208,.65); transform: translateY(-1px); }
+.bottom-nav-cta { color: var(--ink); background: var(--sand); box-shadow: 0 7px 16px rgba(192,151,81,.2); }
+.bottom-nav-cta svg { color: var(--ink); }
 
 .hero-section { min-height: 624px; display: grid; grid-template-columns: .94fr 1.06fr; align-items: center; gap: 45px; padding-block: 40px 88px; direction: ltr; }
 .hero-copy { direction: rtl; position: relative; z-index: 1; }
@@ -127,7 +133,7 @@ h1 em, h2 em { color: var(--aqua-deep); font-style: normal; }
 .footer-social a:hover { color: var(--aqua-deep); }
 .copyright { font-family: 'Space Grotesk', sans-serif; direction: ltr; }
 
-.auth-page { min-height: 100vh; display: grid; grid-template-columns: 44% 56%; background: var(--paper); }
+.auth-page { min-height: 100vh; display: grid; grid-template-columns: 44% 56%; padding-bottom: 84px; background: var(--paper); }
 .auth-aside { position: relative; overflow: hidden; display: flex; flex-direction: column; min-height: 100vh; padding: 36px 8%; color: white; background: var(--ink); }
 .auth-aside::before { content: ""; position: absolute; width: 500px; height: 500px; border: 1px solid rgba(184,222,212,.16); border-radius: 50%; left: -190px; bottom: -205px; box-shadow: 0 0 0 55px rgba(184,222,212,.025), 0 0 0 110px rgba(184,222,212,.02); }
 .auth-aside::after { content: ""; position: absolute; width: 245px; height: 245px; border: 1px solid rgba(223,198,154,.25); border-radius: 50%; right: -105px; top: 31%; }
@@ -192,13 +198,6 @@ h1 em, h2 em { color: var(--aqua-deep); font-style: normal; }
 
 @media (max-width: 850px) {
   .shell { width: min(100% - 38px, 620px); }
-  .nav-links { display: none; position: absolute; top: 80px; right: 19px; left: 19px; padding: 14px; flex-direction: column; align-items: stretch; gap: 0; background: var(--paper); border: 1px solid var(--line); box-shadow: 0 18px 40px rgba(17,29,45,.12); }
-  .nav-links.nav-open { display: flex; }
-  .nav-links a { padding: 13px; }
-  .mobile-nav-action { display: block; margin-top: 5px; padding-top: 5px; border-top: 1px solid var(--line); }
-  .mobile-nav-action a { display: block; color: var(--aqua-deep); }
-  .header-actions { display: none; }
-  .menu-button { display: grid; place-items: center; padding: 7px; color: var(--ink); background: transparent; cursor: pointer; }
   .hero-section { grid-template-columns: 1fr; min-height: auto; padding-block: 54px 78px; gap: 25px; }
   .hero-visual { min-height: 390px; }
   .orbital-art { width: min(100%, 430px); }
@@ -231,4 +230,7 @@ h1 em, h2 em { color: var(--aqua-deep); font-style: normal; }
   .final-cta h2 { font-size: 44px; }
   .site-footer p { order: 3; flex-basis: 100%; }
   .auth-heading h2 { font-size: 33px; }
+  .bottom-nav { bottom: max(8px, env(safe-area-inset-bottom)); width: calc(100% - 16px); padding: 6px; border-radius: 15px; }
+  .bottom-nav-link { gap: 4px; padding: 9px 5px; font-size: 9px; }
+  .bottom-nav-link svg { width: 16px; height: 16px; }
 }
