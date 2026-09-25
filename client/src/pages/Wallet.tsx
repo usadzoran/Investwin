@@ -8,6 +8,8 @@ import {
   ArrowUpRight,
   Check,
   ChevronDown,
+  CircleCheck,
+  Clock3,
   Copy,
   ExternalLink,
   Home,
@@ -15,6 +17,7 @@ import {
   RefreshCw,
   Send,
   ShieldCheck,
+  TriangleAlert,
   WalletCards,
 } from "lucide-react";
 import {
@@ -29,6 +32,9 @@ import {
 } from "@/lib/wallet";
 
 const chainKeys = Object.keys(SUPPORTED_CHAINS) as ChainKey[];
+
+type DepositStatus = "pending" | "completed" | "failed";
+type DepositRecord = { hash: string; chain: ChainKey; status: DepositStatus; createdAt: string };
 
 function shortenAddress(address: string) {
   return `${address.slice(0, 6)}…${address.slice(-4)}`;
@@ -54,10 +60,72 @@ export default function WalletPage() {
   const [recipient, setRecipient] = useState("");
   const [amount, setAmount] = useState("");
   const [activePanel, setActivePanel] = useState<"receive" | "send">("receive");
+  const [depositHash, setDepositHash] = useState("");
+  const [deposits, setDeposits] = useState<DepositRecord[]>([]);
+  const [isCheckingDeposit, setIsCheckingDeposit] = useState(false);
 
   const chain = SUPPORTED_CHAINS[activeChain];
   const isWrongNetwork = Boolean(snapshot?.wrongNetwork);
   const displayBalance = snapshot?.usdtBalance === "—" ? "—" : Number(snapshot?.usdtBalance ?? 0).toLocaleString("en-US", { maximumFractionDigits: 4 });
+
+  useEffect(() => {
+    if (!address) {
+      setDeposits([]);
+      return;
+    }
+    try {
+      const saved = localStorage.getItem(`noura-deposits-${address.toLowerCase()}`);
+      setDeposits(saved ? JSON.parse(saved) as DepositRecord[] : []);
+    } catch {
+      setDeposits([]);
+    }
+  }, [address]);
+
+  const saveDeposits = (next: DepositRecord[]) => {
+    setDeposits(next);
+    if (address) localStorage.setItem(`noura-deposits-${address.toLowerCase()}`, JSON.stringify(next));
+  };
+
+  const checkDepositHash = async (hash: string) => {
+    if (!provider) throw new Error("اربط محفظتك أولاً.");
+    const receipt = await provider.request({ method: "eth_getTransactionReceipt", params: [hash] }) as { status?: string } | null;
+    return receipt ? (receipt.status === "0x1" ? "completed" : "failed") : "pending";
+  };
+
+  const addDeposit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const hash = depositHash.trim();
+    if (!/^0x[a-fA-F0-9]{64}$/.test(hash)) {
+      toast.error("أدخل Transaction Hash صحيحاً يبدأ بـ 0x.");
+      return;
+    }
+    if (deposits.some((deposit) => deposit.hash.toLowerCase() === hash.toLowerCase() && deposit.chain === activeChain)) {
+      toast.error("هذه المعاملة موجودة في السجل بالفعل.");
+      return;
+    }
+    setIsCheckingDeposit(true);
+    try {
+      const status = await checkDepositHash(hash);
+      const next = [{ hash, chain: activeChain, status, createdAt: new Date().toISOString() } as DepositRecord, ...deposits];
+      saveDeposits(next);
+      setDepositHash("");
+      toast.success(status === "completed" ? "المعاملة مكتملة على الشبكة" : "تمت إضافة المعاملة قيد المراجعة");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "تعذر التحقق من المعاملة.");
+    } finally {
+      setIsCheckingDeposit(false);
+    }
+  };
+
+  const refreshDeposit = async (deposit: DepositRecord) => {
+    if (!provider) return;
+    try {
+      const status = await checkDepositHash(deposit.hash);
+      saveDeposits(deposits.map((item) => item.hash === deposit.hash ? { ...item, status } : item));
+    } catch {
+      toast.error("تعذر تحديث حالة المعاملة.");
+    }
+  };
 
   const refresh = useCallback(async (nextProvider = provider, nextChain = activeChain) => {
     if (!nextProvider) return;
@@ -201,6 +269,12 @@ export default function WalletPage() {
             <section className="wallet-actions-card">
               <div className="wallet-tabs"><button className={activePanel === "receive" ? "active" : ""} onClick={() => setActivePanel("receive")}><ArrowDownToLine size={17} /> استقبال</button><button className={activePanel === "send" ? "active" : ""} onClick={() => setActivePanel("send")}><Send size={16} /> إرسال</button></div>
               {activePanel === "receive" ? <div className="receive-panel"><div><h2>استقبال USDT</h2><p>أرسل USDT إلى هذا العنوان باستخدام شبكة <strong>{chain.name}</strong> فقط.</p></div><div className="receive-address"><code>{address}</code><button onClick={() => copyText(address, "عنوان الاستقبال")}><Copy size={16} /> نسخ</button></div><div className="network-warning"><ShieldCheck size={15} /><span>تأكد من اختيار الشبكة نفسها في المنصة المرسلة. العملات المرسلة على شبكة مختلفة قد تضيع.</span></div><div className="binance-deposit-card"><div className="binance-deposit-heading"><span className="binance-mark">B</span><div><strong>الإيداع من Binance</strong><small>أرسل يدوياً إلى محفظتك بأمان</small></div></div><ol><li>في Binance اختر <b>Withdraw USDT</b>.</li><li>ألصق العنوان أعلاه واختر شبكة <b>{chain.name}</b>.</li><li>راجع الشبكة والعنوان ثم أكمل السحب من Binance.</li></ol><a className="binance-open-link" href="https://www.binance.com/en/my/wallet/account/main" target="_blank" rel="noreferrer">فتح Binance <ExternalLink size={14} /></a></div><a className="explorer-link" href={`${chain.explorer}/address/${address}`} target="_blank" rel="noreferrer">عرض العنوان على المستكشف <ExternalLink size={14} /></a></div> : <form className="send-panel" onSubmit={submitTransfer}><div><h2>إرسال USDT</h2><p>ستراجع وتوقع المعاملة داخل {connectionLabel} قبل الإرسال.</p></div><label>عنوان المستلم<input value={recipient} onChange={(event) => setRecipient(event.target.value)} placeholder="0x…" dir="ltr" /></label><label>الكمية<input value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="0.00" inputMode="decimal" dir="ltr" /><span className="input-unit">USDT</span></label><button className="wallet-send-button" type="submit" disabled={isSending || isWrongNetwork}>{isSending ? "بانتظار تأكيدك…" : <>مراجعة وإرسال <ArrowUpLeft size={17} /></>}</button><div className="network-warning"><ShieldCheck size={15} /><span>لا يمكن التراجع عن المعاملة بعد تأكيدها. تحقق من العنوان والشبكة قبل التوقيع.</span></div></form>}
+            </section>
+            <section className="deposit-history-card">
+              <div className="deposit-history-heading"><div><div className="wallet-eyebrow"><Clock3 size={14} /> متابعة الإيداعات</div><h2>سجل الإيداعات</h2><p>أضف Transaction Hash من Binance لمتابعة حالة المعاملة على الشبكة.</p></div><span className="deposit-count">{deposits.length} معاملات</span></div>
+              <form className="deposit-check-form" onSubmit={addDeposit}><input value={depositHash} onChange={(event) => setDepositHash(event.target.value)} placeholder="ألصق Transaction Hash هنا" dir="ltr" /><button type="submit" disabled={isCheckingDeposit}>{isCheckingDeposit ? "جارٍ التحقق…" : "إضافة للسجل"}</button></form>
+              {deposits.length === 0 ? <div className="deposit-empty"><Clock3 size={18} /><span>لا توجد إيداعات مسجلة بعد.</span></div> : <div className="deposit-list">{deposits.map((deposit) => { const depositChain = SUPPORTED_CHAINS[deposit.chain]; const statusLabel = deposit.status === "completed" ? "مكتملة" : deposit.status === "failed" ? "فاشلة" : "قيد المراجعة"; return <div className="deposit-row" key={`${deposit.chain}-${deposit.hash}`}><div className={`deposit-status-icon ${deposit.status}`}>{deposit.status === "completed" ? <CircleCheck size={17} /> : deposit.status === "failed" ? <TriangleAlert size={17} /> : <Clock3 size={17} />}</div><div className="deposit-meta"><strong>{statusLabel}</strong><small>{depositChain.name} · {shortenAddress(deposit.hash)}</small></div><a href={`${depositChain.explorer}/tx/${deposit.hash}`} target="_blank" rel="noreferrer" aria-label="عرض المعاملة"><ExternalLink size={15} /></a>{deposit.status === "pending" && <button className="deposit-refresh" onClick={() => void refreshDeposit(deposit)} aria-label="تحديث الحالة"><RefreshCw size={14} /></button>}</div>; })}</div>}
+              <div className="deposit-history-note"><ShieldCheck size={14} /> الحالة تعكس تأكيد المعاملة على الشبكة، ولا تعني ضمان وصول الأموال إذا كانت الشبكة أو العنوان غير صحيحين.</div>
             </section>
           </>
         )}
