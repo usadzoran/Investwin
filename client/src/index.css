@@ -120,6 +120,12 @@ h1 em, h2 em { color: var(--aqua-deep); font-style: normal; }
 .benefit { display: grid; grid-template-columns: 42px 1fr auto; align-items: center; gap: 22px; min-height: 78px; border-bottom: 1px solid rgba(255,255,255,.2); color: rgba(255,255,255,.88); font-size: 15px; }
 .benefit svg { color: var(--aqua); }
 .benefit-number { color: var(--sand); font-family: 'Space Grotesk', sans-serif; font-size: 12px; }
+.investment-path { display: grid; grid-template-columns: 42px 1fr auto; align-items: center; gap: 22px; min-height: 92px; border-bottom: 1px solid rgba(255,255,255,.2); }
+.investment-path > div { display: grid; gap: 3px; }
+.investment-path strong { color: rgba(255,255,255,.94); font-size: 15px; }
+.investment-path small { color: rgba(255,255,255,.55); font-size: 11px; }
+.investment-path em { width: fit-content; margin-top: 4px; padding: 2px 7px; border: 1px solid rgba(184,222,212,.22); border-radius: 20px; color: var(--aqua); font-size: 9px; font-style: normal; }
+.investment-path > svg { color: var(--aqua); }
 .final-cta { display: flex; align-items: end; justify-content: space-between; gap: 30px; padding-block: 112px 105px; }
 .final-cta .eyebrow { margin-bottom: 22px; }
 .site-footer { min-height: 84px; display: flex; align-items: center; gap: 39px; border-top: 1px solid var(--line); color: #80909f; font-size: 11px; }
@@ -227,6 +233,9 @@ h1 em, h2 em { color: var(--aqua-deep); font-style: normal; }
   .story-section { padding-block: 74px; }
   .rhythm-grid { padding-block: 70px; }
   .benefit { grid-template-columns: 31px 1fr auto; gap: 12px; font-size: 13px; }
+  .investment-path { grid-template-columns: 31px 1fr auto; gap: 12px; }
+  .investment-path strong { font-size: 13px; }
+  .investment-path small { font-size: 10px; }
   .final-cta h2 { font-size: 44px; }
   .site-footer p { order: 3; flex-basis: 100%; }
   .auth-heading h2 { font-size: 33px; }

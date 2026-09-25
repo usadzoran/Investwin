@@ -21,12 +21,6 @@ import {
 } from "lucide-react";
 import { getSupabaseErrorMessage, supabase } from "@/lib/supabase";
 
-const benefits = [
-  "مساحة واحدة لأفكارك ومشاريعك",
-  "تنظيم بسيط يحافظ على تركيزك",
-  "تجربة مصممة لتشبه إيقاعك",
-];
-
 function Logo({ light = false }: { light?: boolean }) {
   return (
     <Link href="/" className={`brand ${light ? "brand-light" : ""}`} aria-label="Noura - الصفحة الرئيسية">
@@ -86,34 +80,38 @@ export default function Home() {
       <main>
         <section className="hero-section shell">
           <div className="hero-copy reveal-up">
-            <div className="eyebrow"><Sparkles size={14} /> مساحة أهدأ. يوم أوضح.</div>
-            <h1>رتّب أفكارك،<br /><em>واصنع مساحتك.</em></h1>
-            <p className="hero-description">نورة هي المساحة الرقمية التي تمنح أفكارك وقتها، ومشاريعك مكانها، ويومك إيقاعه الخاص.</p>
+            <div className="eyebrow"><Sparkles size={14} /> استثمر بوعي. تحرّك بوضوح.</div>
+            <h1>ابنِ محفظتك،<br /><em>وتابع مستقبلك.</em></h1>
+            <p className="hero-description">نورة تمنحك مساحة واضحة لإدارة أصولك الرقمية، متابعة شبكاتك، واتخاذ قرارات استثمارية أكثر وعياً.</p>
             <div className="hero-actions">
-              <Link href="/signup" className="button button-accent">أنشئ مساحتك <ArrowUpLeft size={18} /></Link>
-              <a href="#story" className="button button-ghost">اكتشف نورة <ArrowLeft size={17} /></a>
+              <Link href="/wallet" className="button button-accent">افتح محفظتك <ArrowUpLeft size={18} /></Link>
+              <a href="#story" className="button button-ghost">كيف نعمل <ArrowLeft size={17} /></a>
             </div>
-            <div className="trust-row"><span className="avatar-stack"><i>س</i><i>ل</i><i>ن</i></span><span>انضم إلى أكثر من <strong>12,000</strong> شخص يبدأون يومهم بوضوح.</span></div>
+            <div className="trust-row"><span className="avatar-stack"><i>س</i><i>ل</i><i>ن</i></span><span>بيانات واضحة، محافظ غير وصائية، و<strong>تحكمك يبقى معك.</strong></span></div>
           </div>
           <div className="hero-visual reveal-up delay-one"><OrbitalArtwork /></div>
         </section>
 
         <section id="story" className="story-section shell">
-          <div className="section-label"><span>01</span><span>لماذا نورة؟</span></div>
+          <div className="section-label"><span>01</span><span>فلسفة الاستثمار</span></div>
           <div className="story-grid">
-            <h2>كل فكرة تستحق<br /><span>مكاناً جميلاً.</span></h2>
-            <div className="story-body"><p>نحن نؤمن أن التنظيم ليس أن تملأ يومك، بل أن تترك مساحة لما يهمك حقاً. صممنا نورة لتكون هادئة، مرنة، وقريبة منك.</p><Link href="/signup" className="inline-link">ابدأ رحلتك <ArrowUpLeft size={16} /></Link></div>
+            <h2>قرارك المالي<br /><span>يبدأ بالوضوح.</span></h2>
+            <div className="story-body"><p>نحن لا نعدك بعوائد مضمونة. نمنحك الأدوات لفهم محفظتك، مقارنة الشبكات، ومتابعة أصولك قبل أن تتخذ قرارك.</p><Link href="/wallet" className="inline-link">استكشف المحفظة <ArrowUpLeft size={16} /></Link></div>
           </div>
         </section>
 
         <section id="rhythm" className="rhythm-section">
           <div className="shell rhythm-grid">
-            <div className="rhythm-intro"><div className="section-label light-label"><span>02</span><span>إيقاعك الخاص</span></div><h2>أقل ضجيجاً.<br /><em>أكثر حضوراً.</em></h2><p>ثلاثة أشياء بسيطة تجعل كل يوم أخف.</p></div>
-            <div className="benefits-list">{benefits.map((benefit, index) => <div className="benefit" key={benefit}><span className="benefit-number">0{index + 1}</span><span>{benefit}</span><Check size={17} /></div>)}</div>
+            <div className="rhythm-intro"><div className="section-label light-label"><span>02</span><span>مساراتك الاستثمارية</span></div><h2>خطط أذكى.<br /><em>مخاطر أوضح.</em></h2><p>اختر المسار الذي يناسب خبرتك، وراجع المخاطر قبل أي خطوة.</p></div>
+            <div className="benefits-list investment-paths">{[
+              ["بداية واعية", "للتعرف على الأصول وإدارة أول محفظة", "مخاطر منخفضة إلى متوسطة"],
+              ["نمو متوازن", "لتنويع الأصول ومتابعة أداء المحفظة", "مخاطر متوسطة"],
+              ["رؤية متقدمة", "للمستثمر الذي يريد أدوات وتحليلات أعمق", "مخاطر متوسطة إلى مرتفعة"],
+            ].map(([title, description, risk], index) => <div className="investment-path" key={title}><span className="benefit-number">0{index + 1}</span><div><strong>{title}</strong><small>{description}</small><em>{risk}</em></div><Check size={17} /></div>)}</div>
           </div>
         </section>
 
-        <section id="contact" className="final-cta shell"><div><div className="eyebrow"><Sparkles size={14} /> البداية من هنا</div><h2>جاهز لمساحة<br /><em>تشبهك؟</em></h2></div><Link href="/signup" className="button button-accent button-large">إنشاء حساب مجاني <ArrowUpLeft size={18} /></Link></section>
+        <section id="contact" className="final-cta shell"><div><div className="eyebrow"><Sparkles size={14} /> البداية من هنا</div><h2>جاهز لبناء<br /><em>محفظتك؟</em></h2></div><Link href="/wallet" className="button button-accent button-large">ابدأ من المحفظة <ArrowUpLeft size={18} /></Link></section>
       </main>
       <footer className="site-footer shell"><Logo /><p>نصنع مساحات أهدأ للأفكار الجميلة.</p><div className="footer-social"><a href="#contact" aria-label="Instagram"><Instagram size={17} /></a><a href="#contact" aria-label="Twitter"><Twitter size={17} /></a></div><span className="copyright">© 2026 noura</span></footer>
       <BottomNav />
@@ -125,7 +123,7 @@ function AuthShell({ children, title, description, mode }: { children: React.Rea
   const [, setLocation] = useLocation();
   return (
     <div className="auth-page" dir="rtl">
-      <div className="auth-aside"><div className="auth-aside-top"><Logo light /><Link href="/" className="back-home"><ArrowLeft size={16} /> العودة للرئيسية</Link></div><div className="auth-aside-content"><div className="eyebrow eyebrow-light"><Sparkles size={14} /> مساحة أهدأ. يوم أوضح.</div><h1>ابدأ من المكان<br /><em>الذي يشبهك.</em></h1><p>خطوة صغيرة اليوم، ومساحة أوسع لأفكارك غداً.</p><div className="aside-stamp"><span>ن</span><div><strong>noura</strong><small>your softer space</small></div></div></div><div className="auth-aside-footer">تصميم يترك مجالاً لما يهمك حقاً <span>✦</span></div></div>
+      <div className="auth-aside"><div className="auth-aside-top"><Logo light /><Link href="/" className="back-home"><ArrowLeft size={16} /> العودة للرئيسية</Link></div><div className="auth-aside-content"><div className="eyebrow eyebrow-light"><Sparkles size={14} /> استثمر بوعي. تحرّك بوضوح.</div><h1>ابدأ من المكان<br /><em>الذي ينمّي رؤيتك.</em></h1><p>خطوة واضحة اليوم، ومساحة أوسع لقراراتك غداً.</p><div className="aside-stamp"><span>ن</span><div><strong>noura</strong><small>your smarter space</small></div></div></div><div className="auth-aside-footer">بيانات أوضح لقرارات استثمارية أذكى <span>✦</span></div></div>
       <main className="auth-main"><div className="auth-card"><div className="mobile-auth-logo"><Logo /></div><div className="auth-heading"><span className="auth-kicker">{mode === "login" ? "مرحباً بعودتك" : "أهلاً بك في نورة"}</span><h2>{title}</h2><p>{description}</p></div>{children}<div className="auth-switch">{mode === "login" ? <>ليس لديك حساب؟ <Link href="/signup">أنشئ حساباً مجانياً</Link></> : <>لديك حساب بالفعل؟ <Link href="/login">تسجيل الدخول</Link></>}</div><button className="back-link" onClick={() => setLocation("/")}><ArrowLeft size={15} /> العودة للصفحة الرئيسية</button></div></main>
       <BottomNav />
     </div>
