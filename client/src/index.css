@@ -50,6 +50,7 @@ button { border: 0; }
 .header-actions { display: flex; align-items: center; gap: 25px; font-size: 13px; font-weight: 700; }
 .text-link { color: #5e6d7d; }
 .button { min-height: 48px; display: inline-flex; align-items: center; justify-content: center; gap: 10px; padding: 0 20px; border-radius: 2px; font-size: 13px; font-weight: 700; cursor: pointer; transition: transform .16s ease, box-shadow .2s ease, background .2s ease; }
+.button:disabled { cursor: wait; opacity: .68; transform: none; }
 .button:hover { transform: translateY(-2px); }
 .button:active { transform: scale(.97); }
 .button-small { min-height: 40px; padding: 0 16px; }

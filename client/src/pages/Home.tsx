@@ -17,6 +17,7 @@ import {
   UserRound,
   X,
 } from "lucide-react";
+import { getSupabaseErrorMessage, supabase } from "@/lib/supabase";
 
 const benefits = [
   "مساحة واحدة لأفكارك ومشاريعك",
@@ -146,14 +147,51 @@ function PasswordField({ label, id, value, onChange, placeholder }: { label: str
 export function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const submit = (event: React.FormEvent) => { event.preventDefault(); toast.success("تم تسجيل الدخول بنجاح", { description: "مرحباً بعودتك إلى نورة." }); };
-  return <AuthShell mode="login" title="تسجيل الدخول" description="أدخل بياناتك للعودة إلى مساحتك."><form className="auth-form" onSubmit={submit}><label className="field"><span>البريد الإلكتروني</span><div className="input-wrap"><Mail size={17} /><input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" dir="ltr" required /></div></label><PasswordField label="كلمة المرور" id="login-password" value={password} onChange={setPassword} placeholder="••••••••" /><div className="form-row"><label className="check-label"><input type="checkbox" /> <span>تذكرني</span></label><a href="#forgot" onClick={(event) => { event.preventDefault(); toast.info("سنرسل لك رابط استعادة كلمة المرور قريباً."); }}>نسيت كلمة المرور؟</a></div><button className="button button-dark submit-button" type="submit">تسجيل الدخول <ArrowUpLeft size={17} /></button></form><div className="auth-divider"><span>أو تابع باستخدام</span></div><button className="social-button" onClick={() => toast.info("تسجيل الدخول بواسطة Google سيكون متاحاً قريباً.")}><span className="google-mark">G</span> المتابعة باستخدام Google</button></AuthShell>;
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [, setLocation] = useLocation();
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setIsSubmitting(true);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    setIsSubmitting(false);
+    if (error) {
+      toast.error(getSupabaseErrorMessage(error.message));
+      return;
+    }
+    toast.success("تم تسجيل الدخول بنجاح", { description: "مرحباً بعودتك إلى نورة." });
+    setLocation("/");
+  };
+  return <AuthShell mode="login" title="تسجيل الدخول" description="أدخل بياناتك للعودة إلى مساحتك."><form className="auth-form" onSubmit={submit}><label className="field"><span>البريد الإلكتروني</span><div className="input-wrap"><Mail size={17} /><input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" dir="ltr" required /></div></label><PasswordField label="كلمة المرور" id="login-password" value={password} onChange={setPassword} placeholder="••••••••" /><div className="form-row"><label className="check-label"><input type="checkbox" /> <span>تذكرني</span></label><a href="#forgot" onClick={(event) => { event.preventDefault(); toast.info("سنرسل لك رابط استعادة كلمة المرور قريباً."); }}>نسيت كلمة المرور؟</a></div><button className="button button-dark submit-button" type="submit" disabled={isSubmitting}>{isSubmitting ? "جارٍ تسجيل الدخول…" : <>تسجيل الدخول <ArrowUpLeft size={17} /></>}</button></form><div className="auth-divider"><span>أو تابع باستخدام</span></div><button type="button" className="social-button" onClick={() => toast.info("تسجيل الدخول بواسطة Google سيكون متاحاً قريباً.")}><span className="google-mark">G</span> المتابعة باستخدام Google</button></AuthShell>;
 }
 
 export function SignupPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const submit = (event: React.FormEvent) => { event.preventDefault(); toast.success("تم إنشاء حسابك", { description: "أهلاً بك في مساحتك الجديدة." }); };
-  return <AuthShell mode="signup" title="إنشاء حساب" description="أنشئ مساحتك المجانية في أقل من دقيقة."><form className="auth-form" onSubmit={submit}><label className="field"><span>الاسم الكامل</span><div className="input-wrap"><UserRound size={17} /><input type="text" value={name} onChange={(event) => setName(event.target.value)} placeholder="مثلاً: نور أحمد" required /></div></label><label className="field"><span>البريد الإلكتروني</span><div className="input-wrap"><Mail size={17} /><input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" dir="ltr" required /></div></label><PasswordField label="كلمة المرور" id="signup-password" value={password} onChange={setPassword} placeholder="8 أحرف على الأقل" /><label className="check-label terms"><input type="checkbox" required /> <span>أوافق على <a href="#terms">الشروط والأحكام</a> وسياسة الخصوصية.</span></label><button className="button button-accent submit-button" type="submit">إنشاء حساب مجاني <ArrowUpLeft size={17} /></button></form><div className="auth-divider"><span>أو تابع باستخدام</span></div><button className="social-button" onClick={() => toast.info("التسجيل بواسطة Google سيكون متاحاً قريباً.")}><span className="google-mark">G</span> التسجيل باستخدام Google</button></AuthShell>;
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [, setLocation] = useLocation();
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setIsSubmitting(true);
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { full_name: name },
+        emailRedirectTo: `${window.location.origin}/login`,
+      },
+    });
+    setIsSubmitting(false);
+    if (error) {
+      toast.error(getSupabaseErrorMessage(error.message));
+      return;
+    }
+    if (data.session) {
+      toast.success("تم إنشاء حسابك", { description: "أهلاً بك في مساحتك الجديدة." });
+      setLocation("/");
+    } else {
+      toast.success("تم إنشاء حسابك", { description: "تحقق من بريدك الإلكتروني لتفعيل الحساب." });
+    }
+  };
+  return <AuthShell mode="signup" title="إنشاء حساب" description="أنشئ مساحتك المجانية في أقل من دقيقة."><form className="auth-form" onSubmit={submit}><label className="field"><span>الاسم الكامل</span><div className="input-wrap"><UserRound size={17} /><input type="text" value={name} onChange={(event) => setName(event.target.value)} placeholder="مثلاً: نور أحمد" required /></div></label><label className="field"><span>البريد الإلكتروني</span><div className="input-wrap"><Mail size={17} /><input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" dir="ltr" required /></div></label><PasswordField label="كلمة المرور" id="signup-password" value={password} onChange={setPassword} placeholder="8 أحرف على الأقل" /><label className="check-label terms"><input type="checkbox" required /> <span>أوافق على <a href="#terms">الشروط والأحكام</a> وسياسة الخصوصية.</span></label><button className="button button-accent submit-button" type="submit" disabled={isSubmitting}>{isSubmitting ? "جارٍ إنشاء الحساب…" : <>إنشاء حساب مجاني <ArrowUpLeft size={17} /></>}</button></form><div className="auth-divider"><span>أو تابع باستخدام</span></div><button type="button" className="social-button" onClick={() => toast.info("التسجيل بواسطة Google سيكون متاحاً قريباً.")}><span className="google-mark">G</span> التسجيل باستخدام Google</button></AuthShell>;
 }
