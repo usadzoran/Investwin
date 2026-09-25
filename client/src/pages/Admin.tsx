@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { ArrowLeft, ExternalLink, LayoutDashboard, LogOut, RefreshCw, Send, ShieldCheck, Users, WalletCards } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { connectWallet, sendUsdt, SUPPORTED_CHAINS, type ChainKey, type Eip1193Provider } from "@/lib/wallet";
+import { syncUserWallet } from "@/lib/walletData";
 
 const chainKeys = Object.keys(SUPPORTED_CHAINS) as ChainKey[];
 type AdminUser = { user_id: string; email: string | null; wallet_address: string | null; chain_key: ChainKey | null };
@@ -58,6 +59,8 @@ export default function AdminPage() {
       const nextProvider = await connectWallet("metamask");
       const accounts = await nextProvider.request({ method: "eth_accounts" }) as string[];
       setProvider(nextProvider); setWalletAddress(accounts[0] ?? "");
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user && accounts[0]) await syncUserWallet(user.id, user.email, accounts[0], chainKey);
       toast.success("تم ربط محفظة Admin");
     } catch (error) { toast.error(error instanceof Error ? error.message : "تعذر ربط محفظة Admin."); }
   };

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { toast } from "sonner";
 import {
   ArrowDownToLine,
@@ -31,11 +31,9 @@ import {
   SUPPORTED_CHAINS,
   switchToChain,
 } from "@/lib/wallet";
+import { createUserDeposit, getCurrentUser, loadUserDeposits, recordUserTransfer, syncUserWallet, updateUserDeposit, type DepositRecord } from "@/lib/walletData";
 
 const chainKeys = Object.keys(SUPPORTED_CHAINS) as ChainKey[];
-
-type DepositStatus = "pending" | "completed" | "failed";
-type DepositRecord = { hash: string; chain: ChainKey; status: DepositStatus; createdAt: string };
 
 function shortenAddress(address: string) {
   return `${address.slice(0, 6)}…${address.slice(-4)}`;
@@ -50,6 +48,7 @@ function copyText(value: string, label: string) {
 }
 
 export default function WalletPage() {
+  const [, navigate] = useLocation();
   const [provider, setProvider] = useState<Eip1193Provider | null>(null);
   const [source, setSource] = useState<WalletSource | null>(null);
   const [address, setAddress] = useState("");
@@ -64,28 +63,32 @@ export default function WalletPage() {
   const [depositHash, setDepositHash] = useState("");
   const [deposits, setDeposits] = useState<DepositRecord[]>([]);
   const [isCheckingDeposit, setIsCheckingDeposit] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | undefined>();
 
   const chain = SUPPORTED_CHAINS[activeChain];
   const isWrongNetwork = Boolean(snapshot?.wrongNetwork);
   const displayBalance = snapshot?.usdtBalance === "—" ? "—" : Number(snapshot?.usdtBalance ?? 0).toLocaleString("en-US", { maximumFractionDigits: 4 });
 
   useEffect(() => {
-    if (!address) {
-      setDeposits([]);
-      return;
-    }
-    try {
-      const saved = localStorage.getItem(`noura-deposits-${address.toLowerCase()}`);
-      setDeposits(saved ? JSON.parse(saved) as DepositRecord[] : []);
-    } catch {
-      setDeposits([]);
-    }
-  }, [address]);
+    let cancelled = false;
+    void getCurrentUser().then(async (user) => {
+      if (cancelled) return;
+      setUserId(user.id);
+      setUserEmail(user.email);
+      try {
+        setDeposits(await loadUserDeposits(user.id));
+      } catch (error) {
+        toast.error(getWalletErrorMessage(error, "تعذر تحميل بيانات المحفظة من قاعدة البيانات."));
+      }
+    }).catch(() => {
+      toast.error("سجّل الدخول أولاً لمزامنة محفظتك مع قاعدة البيانات.");
+      navigate("/login");
+    });
+    return () => { cancelled = true; };
+  }, [navigate]);
 
-  const saveDeposits = (next: DepositRecord[]) => {
-    setDeposits(next);
-    if (address) localStorage.setItem(`noura-deposits-${address.toLowerCase()}`, JSON.stringify(next));
-  };
+  const saveDeposits = (next: DepositRecord[]) => setDeposits(next);
 
   const checkDepositHash = async (hash: string) => {
     if (!provider) throw new Error("اربط محفظتك أولاً.");
@@ -107,8 +110,9 @@ export default function WalletPage() {
     setIsCheckingDeposit(true);
     try {
       const status = await checkDepositHash(hash);
-      const next = [{ hash, chain: activeChain, status, createdAt: new Date().toISOString() } as DepositRecord, ...deposits];
-      saveDeposits(next);
+      if (!userId || !address) throw new Error("لم يتم التعرف على حساب المستخدم.");
+      const created = await createUserDeposit({ userId, walletAddress: address, chain: activeChain, hash, status });
+      saveDeposits([created, ...deposits]);
       setDepositHash("");
       toast.success(status === "completed" ? "المعاملة مكتملة على الشبكة" : "تمت إضافة المعاملة قيد المراجعة");
     } catch (error) {
@@ -122,7 +126,8 @@ export default function WalletPage() {
     if (!provider) return;
     try {
       const status = await checkDepositHash(deposit.hash);
-      saveDeposits(deposits.map((item) => item.hash === deposit.hash ? { ...item, status } : item));
+      await updateUserDeposit(deposit.id, status);
+      saveDeposits(deposits.map((item) => item.id === deposit.id ? { ...item, status } : item));
     } catch {
       toast.error("تعذر تحديث حالة المعاملة.");
     }
@@ -175,6 +180,8 @@ export default function WalletPage() {
       setProvider(nextProvider);
       setSource(nextSource);
       await refresh(nextProvider, activeChain);
+      const connectedAccounts = await nextProvider.request({ method: "eth_accounts" }) as string[];
+      if (userId && connectedAccounts[0]) await syncUserWallet(userId, userEmail, connectedAccounts[0], activeChain);
       toast.success("تم ربط المحفظة بنجاح");
     } catch (error) {
       toast.error(getWalletErrorMessage(error, "تعذر ربط المحفظة."));
@@ -203,6 +210,7 @@ export default function WalletPage() {
     try {
       await switchToChain(provider, nextChain);
       await refresh(provider, nextChain);
+      if (userId && address) await syncUserWallet(userId, userEmail, address, nextChain);
     } catch (error) {
       toast.error(getWalletErrorMessage(error, "لم نتمكن من تغيير الشبكة."));
     }
@@ -230,6 +238,9 @@ export default function WalletPage() {
     setIsSending(true);
     try {
       const receipt = await sendUsdt(provider, activeChain, recipient, amount);
+      if (userId && address && receipt?.hash) {
+        await recordUserTransfer({ userId, fromAddress: address, toAddress: recipient, chain: activeChain, amount, txHash: receipt.hash });
+      }
       toast.success("تم تأكيد إرسال USDT", { description: `المعاملة: ${receipt?.hash?.slice(0, 16)}…` });
       setRecipient("");
       setAmount("");

@@ -44,6 +44,20 @@ create table if not exists public.admin_transfers (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.wallet_transfers (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  from_address text not null,
+  recipient_address text not null,
+  chain_key text not null check (chain_key in ('ethereum', 'polygon', 'bnb')),
+  token_symbol text not null default 'USDT',
+  amount numeric not null check (amount > 0),
+  tx_hash text not null,
+  status text not null default 'confirmed' check (status in ('submitted', 'confirmed', 'failed')),
+  created_at timestamptz not null default now(),
+  unique (chain_key, tx_hash)
+);
+
 create or replace function public.is_admin()
 returns boolean
 language sql
@@ -86,6 +100,7 @@ alter table public.admin_users enable row level security;
 alter table public.user_profiles enable row level security;
 alter table public.deposit_records enable row level security;
 alter table public.admin_transfers enable row level security;
+alter table public.wallet_transfers enable row level security;
 
 drop policy if exists "admins read admin users" on public.admin_users;
 create policy "admins read admin users" on public.admin_users for select to authenticated using (public.is_admin());
@@ -112,6 +127,13 @@ drop policy if exists "admins create transfers" on public.admin_transfers;
 create policy "admins create transfers" on public.admin_transfers for insert to authenticated with check (public.is_admin() and admin_user_id = auth.uid());
 drop policy if exists "admins update transfers" on public.admin_transfers;
 create policy "admins update transfers" on public.admin_transfers for update to authenticated using (public.is_admin()) with check (public.is_admin());
+
+drop policy if exists "users read own wallet transfers" on public.wallet_transfers;
+create policy "users read own wallet transfers" on public.wallet_transfers for select to authenticated using (auth.uid() = user_id or public.is_admin());
+drop policy if exists "users create own wallet transfers" on public.wallet_transfers;
+create policy "users create own wallet transfers" on public.wallet_transfers for insert to authenticated with check (auth.uid() = user_id);
+drop policy if exists "admins update wallet transfers" on public.wallet_transfers;
+create policy "admins update wallet transfers" on public.wallet_transfers for update to authenticated using (public.is_admin()) with check (public.is_admin());
 
 -- Bootstrap the specified Admin account after it exists in Supabase Auth.
 insert into public.admin_users (user_id, email)
