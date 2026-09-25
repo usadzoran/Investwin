@@ -12,6 +12,24 @@ export interface Eip1193Provider {
   isMetaMask?: boolean;
 }
 
+export function getWalletErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === "string" && error.trim()) return error;
+  if (error && typeof error === "object") {
+    const candidate = error as { message?: unknown; error?: { message?: unknown }; code?: unknown };
+    if (candidate.code === 4001) return "تم رفض الطلب من المحفظة.";
+    if (typeof candidate.message === "string" && candidate.message.trim()) return candidate.message;
+    if (typeof candidate.error?.message === "string" && candidate.error.message.trim()) return candidate.error.message;
+    try {
+      const serialized = JSON.stringify(error);
+      if (serialized && serialized !== "{}") return serialized;
+    } catch {
+      // Keep the safe fallback for circular provider errors.
+    }
+  }
+  return fallback;
+}
+
 export const SUPPORTED_CHAINS = {
   ethereum: {
     id: 1,
@@ -67,7 +85,10 @@ export async function getWalletConnectProvider() {
         url: window.location.origin,
         icons: [],
       },
-    }).then((provider) => provider as unknown as Eip1193Provider);
+    }).then((provider) => provider as unknown as Eip1193Provider).catch((error) => {
+      walletConnectProviderPromise = null;
+      throw new Error(getWalletErrorMessage(error, "تعذر تهيئة WalletConnect."));
+    });
   }
 
   return walletConnectProviderPromise;
@@ -84,8 +105,12 @@ export async function getInjectedProvider(): Promise<Eip1193Provider> {
 export async function connectWallet(source: WalletSource): Promise<Eip1193Provider> {
   if (source === "metamask") return getInjectedProvider();
   const provider = await getWalletConnectProvider();
-  await provider.connect?.();
-  await provider.request({ method: "eth_requestAccounts" });
+  try {
+    await provider.connect?.();
+    await provider.request({ method: "eth_requestAccounts" });
+  } catch (error) {
+    throw new Error(getWalletErrorMessage(error, "تعذر إكمال اتصال WalletConnect."));
+  }
   return provider;
 }
 

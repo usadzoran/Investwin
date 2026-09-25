@@ -26,6 +26,7 @@ import {
   type WalletSource,
   connectWallet,
   getWalletSnapshot,
+  getWalletErrorMessage,
   sendUsdt,
   SUPPORTED_CHAINS,
   switchToChain,
@@ -111,7 +112,7 @@ export default function WalletPage() {
       setDepositHash("");
       toast.success(status === "completed" ? "المعاملة مكتملة على الشبكة" : "تمت إضافة المعاملة قيد المراجعة");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "تعذر التحقق من المعاملة.");
+      toast.error(getWalletErrorMessage(error, "تعذر التحقق من المعاملة."));
     } finally {
       setIsCheckingDeposit(false);
     }
@@ -135,7 +136,7 @@ export default function WalletPage() {
       setSnapshot(nextSnapshot);
       setAddress(nextSnapshot.address);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "تعذر قراءة رصيد المحفظة.");
+      toast.error(getWalletErrorMessage(error, "تعذر قراءة رصيد المحفظة."));
     } finally {
       setIsRefreshing(false);
     }
@@ -176,19 +177,24 @@ export default function WalletPage() {
       await refresh(nextProvider, activeChain);
       toast.success("تم ربط المحفظة بنجاح");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "تعذر ربط المحفظة.");
+      toast.error(getWalletErrorMessage(error, "تعذر ربط المحفظة."));
     } finally {
       setIsConnecting(false);
     }
   };
 
   const disconnect = async () => {
-    await provider?.disconnect?.();
-    setProvider(null);
-    setSource(null);
-    setAddress("");
-    setSnapshot(null);
-    toast.success("تم فصل المحفظة");
+    try {
+      await provider?.disconnect?.();
+      toast.success("تم فصل المحفظة");
+    } catch (error) {
+      toast.error(getWalletErrorMessage(error, "تعذر فصل المحفظة، حاول مرة أخرى."));
+    } finally {
+      setProvider(null);
+      setSource(null);
+      setAddress("");
+      setSnapshot(null);
+    }
   };
 
   const changeChain = async (nextChain: ChainKey) => {
@@ -198,7 +204,7 @@ export default function WalletPage() {
       await switchToChain(provider, nextChain);
       await refresh(provider, nextChain);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "لم نتمكن من تغيير الشبكة.");
+      toast.error(getWalletErrorMessage(error, "لم نتمكن من تغيير الشبكة."));
     }
   };
 
@@ -229,7 +235,7 @@ export default function WalletPage() {
       setAmount("");
       await refresh(provider, activeChain);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "تم رفض المعاملة أو تعذر إرسالها.");
+      toast.error(getWalletErrorMessage(error, "تم رفض المعاملة أو تعذر إرسالها."));
     } finally {
       setIsSending(false);
     }
