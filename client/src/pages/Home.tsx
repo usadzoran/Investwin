@@ -17,6 +17,7 @@ import {
   Sparkles,
   Twitter,
   UserRound,
+  WalletCards,
 } from "lucide-react";
 import { getSupabaseErrorMessage, supabase } from "@/lib/supabase";
 
@@ -55,6 +56,7 @@ function BottomNav() {
       <Link href="/" className="bottom-nav-link"><HomeIcon size={18} /><span>الرئيسية</span></Link>
       <a href="/#story" className="bottom-nav-link"><Sparkles size={17} /><span>قصتنا</span></a>
       <a href="/#rhythm" className="bottom-nav-link"><MessageCircle size={17} /><span>كيف نساعدك</span></a>
+      <Link href="/wallet" className="bottom-nav-link"><WalletCards size={17} /><span>المحفظة</span></Link>
       <Link href="/login" className="bottom-nav-link"><LogIn size={17} /><span>تسجيل الدخول</span></Link>
       <Link href="/signup" className="bottom-nav-link bottom-nav-cta"><ArrowUpLeft size={17} /><span>إنشاء حساب</span></Link>
     </nav>
