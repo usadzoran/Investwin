@@ -203,11 +203,16 @@ function vitePluginStorageProxy(): Plugin {
   };
 }
 
-const plugins = [react(), tailwindcss(), jsxLocPlugin(), vitePluginManusRuntime(), vitePluginManusDebugCollector(), vitePluginStorageProxy()];
-
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   base: process.env.GITHUB_ACTIONS ? "/Investwin/" : "/",
-  plugins,
+  plugins: [
+    react(),
+    tailwindcss(),
+    jsxLocPlugin(),
+    ...(mode === "production" ? [] : [vitePluginManusRuntime()]),
+    vitePluginManusDebugCollector(),
+    vitePluginStorageProxy(),
+  ],
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "client", "src"),
@@ -239,4 +244,4 @@ export default defineConfig({
       deny: ["**/.*"],
     },
   },
-});
+}));
