@@ -14,7 +14,6 @@ import {
   Eye,
   EyeOff,
   Flame,
-  KeyRound,
   LayoutDashboard,
   Lock,
   LogOut,
@@ -24,7 +23,6 @@ import {
   Send,
   ShieldAlert,
   ShieldCheck,
-  Sparkles,
   TrendingUp,
   UserCheck,
   Users,
@@ -64,16 +62,6 @@ function shorten(value: string) {
   return `${value.slice(0, 7)}…${value.slice(-5)}`;
 }
 
-// Authorized Admin Emails
-const AUTHORIZED_ADMIN_EMAILS = [
-  "wahablila31000@gmail.com",
-  "admin@noura.com",
-  "yakinporddz31@gmail.com",
-];
-
-// Master Admin Password (can be entered or 1-click authorized)
-const MASTER_ADMIN_PASS = "Admin@2026#Invest";
-
 export default function AdminPage() {
   const [, navigate] = useLocation();
   const [loading, setLoading] = useState(true);
@@ -81,8 +69,8 @@ export default function AdminPage() {
   const [adminEmail, setAdminEmail] = useState("");
 
   // Login Form States (for unauthorized access)
-  const [loginEmail, setLoginEmail] = useState("wahablila31000@gmail.com");
-  const [loginPassword, setLoginPassword] = useState("Admin@2026#Invest");
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
@@ -103,7 +91,7 @@ export default function AdminPage() {
     statusText: string;
   }>({
     connected: true,
-    url: "https://cjmutyofskqaershxkko.supabase.co",
+    url: "https://vmhhriytxjeikorzoqcs.supabase.co",
     latencyMs: 145,
     statusText: "متصل بنشاط وجاهز (Active & Healthy)",
   });
@@ -143,33 +131,27 @@ export default function AdminPage() {
   const loadAdminData = async (authorizedEmail?: string) => {
     setLoading(true);
     try {
-      // 1. Verify session
-      let currentEmail = authorizedEmail;
-      
-      if (!currentEmail) {
-        // Check session storage first
-        const savedSession = sessionStorage.getItem("noura_admin_auth");
-        if (savedSession) {
-          const parsed = JSON.parse(savedSession);
-          if (parsed?.email && AUTHORIZED_ADMIN_EMAILS.includes(parsed.email.toLowerCase())) {
-            currentEmail = parsed.email;
-          }
-        }
-      }
-
-      if (!currentEmail) {
-        // Check Supabase session
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user?.email && AUTHORIZED_ADMIN_EMAILS.includes(user.email.toLowerCase())) {
-          currentEmail = user.email;
-        }
-      }
-
-      if (!currentEmail) {
+      // Verify the real Supabase session and the database-backed admin role.
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
         setIsAdmin(false);
         setLoading(false);
         return;
       }
+
+      const { data: role, error: roleError } = await supabase
+        .from("admin_users")
+        .select("user_id")
+        .eq("user_id", user.id)
+        .eq("is_active", true)
+        .maybeSingle();
+      if (roleError || !role) {
+        setIsAdmin(false);
+        setLoading(false);
+        return;
+      }
+
+      const currentEmail = user.email ?? authorizedEmail ?? "";
 
       setAdminEmail(currentEmail);
       setIsAdmin(true);
@@ -205,58 +187,36 @@ export default function AdminPage() {
     e.preventDefault();
     setIsLoggingIn(true);
 
-    const cleanEmail = loginEmail.trim().toLowerCase();
-    const isAuthorizedEmail = AUTHORIZED_ADMIN_EMAILS.includes(cleanEmail) || cleanEmail === "admin";
-
-    if (!isAuthorizedEmail) {
-      toast.error("هذا البريد غير مصرح له بالدخول كمسؤول.");
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: loginEmail.trim(),
+      password: loginPassword,
+    });
+    if (error || !data.user) {
+      toast.error(error?.message ?? "تعذر تسجيل الدخول.");
       setIsLoggingIn(false);
       return;
     }
 
-    if (loginPassword !== MASTER_ADMIN_PASS && loginPassword.length < 6) {
-      toast.error("كلمة المرور غير صحيحة.");
+    const { data: role } = await supabase
+      .from("admin_users")
+      .select("user_id")
+      .eq("user_id", data.user.id)
+      .eq("is_active", true)
+      .maybeSingle();
+    if (!role) {
+      await supabase.auth.signOut();
+      toast.error("هذا الحساب ليس لديه صلاحية Admin.");
       setIsLoggingIn(false);
       return;
     }
 
-    // Grant Admin session
-    const effectiveEmail = cleanEmail === "admin" ? "admin@noura.com" : cleanEmail;
-    sessionStorage.setItem("noura_admin_auth", JSON.stringify({
-      email: effectiveEmail,
-      timestamp: Date.now(),
-      role: "super_admin",
-    }));
-
-    toast.success("تم تسجيل دخول المشرف بنجاح", {
-      description: `مرحباً بك في لوحة تحكم نورة: ${effectiveEmail}`,
-    });
-
+    toast.success("تم تسجيل دخول المشرف عبر Supabase بنجاح.");
     setIsLoggingIn(false);
-    await loadAdminData(effectiveEmail);
-  };
-
-  // Quick 1-Click Login for Owner
-  const handleQuickOwnerLogin = async () => {
-    setIsLoggingIn(true);
-    const ownerEmail = "wahablila31000@gmail.com";
-    sessionStorage.setItem("noura_admin_auth", JSON.stringify({
-      email: ownerEmail,
-      timestamp: Date.now(),
-      role: "super_admin",
-    }));
-
-    toast.success("تم التحقق من هوية المالك بنجاح (1-Click Login)", {
-      description: `جلسة إدارة موثقة: ${ownerEmail}`,
-    });
-
-    setIsLoggingIn(false);
-    await loadAdminData(ownerEmail);
+    await loadAdminData(data.user.email);
   };
 
   // Logout Admin
   const handleAdminLogout = async () => {
-    sessionStorage.removeItem("noura_admin_auth");
     try {
       await supabase.auth.signOut();
     } catch {
@@ -275,7 +235,9 @@ export default function AdminPage() {
       setProvider(nextProvider);
       setWalletAddress(accounts[0] ?? "");
       if (accounts[0]) {
-        await syncUserWallet("admin_master_wallet", adminEmail, accounts[0], chainKey);
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error("انتهت جلسة Admin.");
+        await syncUserWallet(user.id, user.email ?? adminEmail, accounts[0], chainKey);
       }
       toast.success("تم ربط محفظة Admin بنجاح");
     } catch (error) {
@@ -444,7 +406,7 @@ create table if not exists public.wallet_transfers (
                 type="text"
                 value={loginEmail}
                 onChange={(e) => setLoginEmail(e.target.value)}
-                placeholder="wahablila31000@gmail.com أو admin@noura.com"
+                placeholder="admin@example.com"
                 dir="ltr"
                 required
               />
@@ -482,28 +444,6 @@ create table if not exists public.wallet_transfers (
               {isLoggingIn ? "جارٍ التحقق والدخول…" : <>دخول لوحة التحكم <ArrowUpLeft size={16} /></>}
             </button>
           </form>
-
-          <div className="quick-access-box">
-            <div className="quick-title">
-              <KeyRound size={14} /> بيانات الدخول المعتمدة لصاحب المشروع:
-            </div>
-            <div className="quick-creds">
-              <div>
-                <strong>البريد المعتمد:</strong> <code>wahablila31000@gmail.com</code> أو <code>admin@noura.com</code>
-              </div>
-              <div>
-                <strong>كلمة المرور:</strong> <code>Admin@2026#Invest</code>
-              </div>
-            </div>
-            <button
-              type="button"
-              className="quick-login-btn"
-              onClick={handleQuickOwnerLogin}
-              disabled={isLoggingIn}
-            >
-              <Sparkles size={15} /> تسجيل دخول سريع بنقرة واحدة (1-Click Owner Login)
-            </button>
-          </div>
 
           <div className="admin-login-footer">
             <Link href="/" className="back-link">

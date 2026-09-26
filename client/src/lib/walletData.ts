@@ -35,15 +35,6 @@ function safeJsonSet<T>(key: string, value: T): void {
 export async function getCurrentUser() {
   const { data, error } = await supabase.auth.getUser();
   if (error || !data.user) {
-    // Check if there is an active local or admin user session
-    const localUserRaw = localStorage.getItem("noura_auth_session");
-    if (localUserRaw) {
-      try {
-        return JSON.parse(localUserRaw);
-      } catch {
-        // fallback
-      }
-    }
     throw new Error("يجب تسجيل الدخول قبل استخدام المحفظة.");
   }
   return data.user;
@@ -51,34 +42,11 @@ export async function getCurrentUser() {
 
 export async function syncUserWallet(userId: string, email: string | undefined, walletAddress: string, chain: ChainKey) {
   const now = new Date().toISOString();
-  
-  // 1. Save to local persistent database
-  const users = safeJsonParse<AdminUser[]>(USERS_STORAGE_KEY, []);
-  const existingIndex = users.findIndex((u) => u.user_id === userId);
-  const updatedUser: AdminUser = {
-    user_id: userId,
-    email: email ?? (existingIndex >= 0 ? users[existingIndex].email : null),
-    wallet_address: walletAddress.toLowerCase(),
-    chain_key: chain,
-    created_at: existingIndex >= 0 && users[existingIndex].created_at ? users[existingIndex].created_at : now,
-  };
-
-  if (existingIndex >= 0) {
-    users[existingIndex] = updatedUser;
-  } else {
-    users.unshift(updatedUser);
-  }
-  safeJsonSet(USERS_STORAGE_KEY, users);
-
-  // 2. Also sync with Supabase remote database if reachable
-  try {
-    await supabase.from("user_profiles").upsert(
-      { user_id: userId, email: email ?? null, wallet_address: walletAddress.toLowerCase(), chain_key: chain, updated_at: now },
-      { onConflict: "user_id" }
-    );
-  } catch (err) {
-    console.warn("Supabase user_profiles sync note:", err);
-  }
+  const { error } = await supabase.from("user_profiles").upsert(
+    { user_id: userId, email: email ?? null, wallet_address: walletAddress.toLowerCase(), chain_key: chain, updated_at: now },
+    { onConflict: "user_id" },
+  );
+  if (error) throw new Error(`تعذر حفظ المحفظة في قاعدة البيانات: ${error.message}`);
 }
 
 export async function loadUserDeposits(userId: string): Promise<DepositRecord[]> {
@@ -90,8 +58,8 @@ export async function loadUserDeposits(userId: string): Promise<DepositRecord[]>
       .eq("user_id", userId)
       .order("created_at", { ascending: false });
 
-    if (!error && data && data.length > 0) {
-      return data.map((row) => ({
+    if (error) throw error;
+    return (data ?? []).map((row) => ({
         id: row.id,
         hash: row.tx_hash,
         chain: row.chain_key as ChainKey,
@@ -101,14 +69,10 @@ export async function loadUserDeposits(userId: string): Promise<DepositRecord[]>
         walletAddress: row.wallet_address,
         userId,
       }));
-    }
-  } catch {
-    // fallback to persistent local DB
+  } catch (error) {
+    console.error("Supabase deposit_records fetch failed:", error);
+    return [];
   }
-
-  // 2. Fallback to persistent local DB
-  const allDeposits = safeJsonParse<DepositRecord[]>(DEPOSITS_STORAGE_KEY, []);
-  return allDeposits.filter((d) => d.userId === userId);
 }
 
 export async function createUserDeposit(input: {
@@ -133,14 +97,7 @@ export async function createUserDeposit(input: {
     userId: input.userId,
   };
 
-  // 1. Save to persistent DB
-  const allDeposits = safeJsonParse<DepositRecord[]>(DEPOSITS_STORAGE_KEY, []);
-  allDeposits.unshift(newDeposit);
-  safeJsonSet(DEPOSITS_STORAGE_KEY, allDeposits);
-
-  // 2. Try saving to Supabase
-  try {
-    const { data } = await supabase
+  const { data, error } = await supabase
       .from("deposit_records")
       .insert({
         user_id: input.userId,
@@ -152,32 +109,15 @@ export async function createUserDeposit(input: {
       })
       .select("id,tx_hash,chain_key,status,created_at")
       .single();
-
-    if (data?.id) {
-      newDeposit.id = data.id;
-    }
-  } catch (err) {
-    console.warn("Supabase deposit insert note:", err);
-  }
+  if (error) throw new Error(`تعذر حفظ الإيداع في قاعدة البيانات: ${error.message}`);
+  if (data?.id) newDeposit.id = data.id;
 
   return newDeposit;
 }
 
 export async function updateUserDeposit(id: string, status: DepositStatus) {
-  // Update local DB
-  const allDeposits = safeJsonParse<DepositRecord[]>(DEPOSITS_STORAGE_KEY, []);
-  const idx = allDeposits.findIndex((d) => d.id === id);
-  if (idx >= 0) {
-    allDeposits[idx].status = status;
-    safeJsonSet(DEPOSITS_STORAGE_KEY, allDeposits);
-  }
-
-  // Update Supabase
-  try {
-    await supabase.from("deposit_records").update({ status, updated_at: new Date().toISOString() }).eq("id", id);
-  } catch (err) {
-    console.warn("Supabase deposit update note:", err);
-  }
+  const { error } = await supabase.from("deposit_records").update({ status, updated_at: new Date().toISOString() }).eq("id", id);
+  if (error) throw new Error(`تعذر تحديث الإيداع في قاعدة البيانات: ${error.message}`);
 }
 
 export async function recordUserTransfer(input: {
@@ -202,14 +142,7 @@ export async function recordUserTransfer(input: {
     recipient_user_id: input.userId,
   };
 
-  // 1. Save local DB
-  const allTransfers = safeJsonParse<AdminTransferRecord[]>(TRANSFERS_STORAGE_KEY, []);
-  allTransfers.unshift(transferRecord);
-  safeJsonSet(TRANSFERS_STORAGE_KEY, allTransfers);
-
-  // 2. Save Supabase
-  try {
-    await supabase.from("wallet_transfers").insert({
+  const { error } = await supabase.from("wallet_transfers").insert({
       user_id: input.userId,
       from_address: input.fromAddress.toLowerCase(),
       recipient_address: input.toAddress.toLowerCase(),
@@ -218,9 +151,7 @@ export async function recordUserTransfer(input: {
       tx_hash: input.txHash,
       status: "confirmed",
     });
-  } catch (err) {
-    console.warn("Supabase transfer insert note:", err);
-  }
+  if (error) throw new Error(`تعذر حفظ التحويل في قاعدة البيانات: ${error.message}`);
 }
 
 export interface InvestmentPlan {
@@ -380,8 +311,8 @@ export async function checkDatabaseHealth(): Promise<{
   statusText: string;
 }> {
   const startTime = Date.now();
-  const url = (import.meta.env.VITE_SUPABASE_URL as string | undefined) ?? "https://cjmutyofskqaershxkko.supabase.co";
-  const key = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) ?? "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNqbXV0eW9mc2txYWVyc2h4a2tvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAyMzA4MDAsImV4cCI6MjEwNTgwNjgwMH0.fxPBgvf3O2jk1uVIFZgKof5HIkzVhN4kYb361ob1D8U";
+  const url = (import.meta.env.VITE_SUPABASE_URL as string | undefined) || "https://vmhhriytxjeikorzoqcs.supabase.co";
+  const key = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZtaGhyaXl0eGplaWtvcnpvcWNzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA0MTYzMzUsImV4cCI6MjEwNTk5MjMzNX0.HxSSo5S89bpTM7cbRSCcqnTxXR1c73xVyGZtAFHJBCU";
 
   try {
     const res = await fetch(`${url}/auth/v1/settings`, {
@@ -396,61 +327,27 @@ export async function checkDatabaseHealth(): Promise<{
     };
   } catch (err) {
     return {
-      connected: true, // local fallback active
+      connected: false,
       url,
       latencyMs: Date.now() - startTime,
-      statusText: "متصل عبر التخزين المحلي الآمن والمباشر",
+      statusText: "تعذر الاتصال بقاعدة Supabase",
     };
   }
 }
 
 export async function fetchAllAdminUsers(): Promise<AdminUser[]> {
-  // 1. Fetch from Supabase
   try {
     const { data, error } = await supabase
       .from("user_profiles")
       .select("user_id,email,wallet_address,chain_key,created_at")
       .order("created_at", { ascending: false });
 
-    if (!error && data && data.length > 0) {
-      // Merge with local persistent DB
-      const localUsers = safeJsonParse<AdminUser[]>(USERS_STORAGE_KEY, []);
-      const merged = [...(data as AdminUser[])];
-      for (const lu of localUsers) {
-        if (!merged.some((m) => m.user_id === lu.user_id)) {
-          merged.push(lu);
-        }
-      }
-      return merged;
-    }
-  } catch {
-    // fallback
+    if (error) throw error;
+    return (data as AdminUser[]) ?? [];
+  } catch (error) {
+    console.error("Supabase user_profiles fetch failed:", error);
+    return [];
   }
-
-  // 2. Fetch from local persistent DB
-  const localUsers = safeJsonParse<AdminUser[]>(USERS_STORAGE_KEY, []);
-  if (localUsers.length === 0) {
-    // Seed standard initial profiles so Admin is not empty
-    const seed: AdminUser[] = [
-      {
-        user_id: "usr_admin_01",
-        email: "wahablila31000@gmail.com",
-        wallet_address: "0x71c...b49f",
-        chain_key: "ethereum",
-        created_at: new Date(Date.now() - 3600000 * 24).toISOString(),
-      },
-      {
-        user_id: "usr_investor_02",
-        email: "investor.pro@noura.com",
-        wallet_address: "0x38b...e91a",
-        chain_key: "polygon",
-        created_at: new Date(Date.now() - 3600000 * 12).toISOString(),
-      },
-    ];
-    safeJsonSet(USERS_STORAGE_KEY, seed);
-    return seed;
-  }
-  return localUsers;
 }
 
 export async function fetchAllAdminDeposits(): Promise<DepositRecord[]> {
@@ -460,8 +357,8 @@ export async function fetchAllAdminDeposits(): Promise<DepositRecord[]> {
       .select("id,tx_hash,chain_key,status,amount,created_at,wallet_address")
       .order("created_at", { ascending: false });
 
-    if (!error && data && data.length > 0) {
-      return data.map((d) => ({
+    if (error) throw error;
+    return (data ?? []).map((d) => ({
         id: d.id,
         hash: d.tx_hash,
         chain: d.chain_key as ChainKey,
@@ -470,37 +367,10 @@ export async function fetchAllAdminDeposits(): Promise<DepositRecord[]> {
         createdAt: d.created_at,
         walletAddress: d.wallet_address,
       }));
-    }
-  } catch {
-    // fallback
+  } catch (error) {
+    console.error("Supabase admin deposit_records fetch failed:", error);
+    return [];
   }
-
-  const local = safeJsonParse<DepositRecord[]>(DEPOSITS_STORAGE_KEY, []);
-  if (local.length === 0) {
-    const seed: DepositRecord[] = [
-      {
-        id: "dep_demo_101",
-        hash: "0x89f7a634cb128912d8a87b8d0012e847cba901238914b7829104fa",
-        chain: "ethereum",
-        status: "completed",
-        amount: 100,
-        createdAt: new Date(Date.now() - 3600000 * 5).toISOString(),
-        walletAddress: "0x71c...b49f",
-      },
-      {
-        id: "dep_demo_102",
-        hash: "0x12a9e8b7c4d5162738495a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b",
-        chain: "polygon",
-        status: "pending",
-        amount: 25,
-        createdAt: new Date(Date.now() - 3600000 * 1).toISOString(),
-        walletAddress: "0x38b...e91a",
-      },
-    ];
-    safeJsonSet(DEPOSITS_STORAGE_KEY, seed);
-    return seed;
-  }
-  return local;
 }
 
 export async function fetchAllAdminTransfers(): Promise<AdminTransferRecord[]> {
@@ -510,48 +380,16 @@ export async function fetchAllAdminTransfers(): Promise<AdminTransferRecord[]> {
       .select("id,recipient_address,chain_key,amount,status,tx_hash,created_at")
       .order("created_at", { ascending: false });
 
-    if (!error && data && data.length > 0) {
-      return data as AdminTransferRecord[];
-    }
-  } catch {
-    // fallback
+    if (error) throw error;
+    return (data as AdminTransferRecord[]) ?? [];
+  } catch (error) {
+    console.error("Supabase admin_transfers fetch failed:", error);
+    return [];
   }
-
-  return safeJsonParse<AdminTransferRecord[]>(TRANSFERS_STORAGE_KEY, []);
 }
 
 export function fetchAllAdminInvestments(): InvestmentPlan[] {
   const all = safeJsonParse<InvestmentPlan[]>(INVESTMENTS_STORAGE_KEY, []);
-  if (all.length === 0) {
-    const seed: InvestmentPlan[] = [
-      {
-        id: "plan_demo_1",
-        userId: "usr_admin_01",
-        walletAddress: "0x71c...b49f",
-        amount: 10,
-        dailyProfit: 2, // 10$ -> 2$ per 24h
-        durationDays: 7,
-        startedAt: new Date(Date.now() - 3600000 * 26).toISOString(), // 26h ago (1 cycle passed)
-        lastClaimAt: new Date(Date.now() - 3600000 * 26).toISOString(),
-        claimedProfits: 0,
-        status: "active",
-      },
-      {
-        id: "plan_demo_2",
-        userId: "usr_investor_02",
-        walletAddress: "0x38b...e91a",
-        amount: 5,
-        dailyProfit: 1, // 5$ -> 1$ per 24h
-        durationDays: 14,
-        startedAt: new Date(Date.now() - 3600000 * 2).toISOString(),
-        lastClaimAt: new Date(Date.now() - 3600000 * 2).toISOString(),
-        claimedProfits: 0,
-        status: "active",
-      },
-    ];
-    safeJsonSet(INVESTMENTS_STORAGE_KEY, seed);
-    return seed;
-  }
   return all;
 }
 
