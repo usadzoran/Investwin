@@ -2,7 +2,7 @@ import { cp, mkdir } from "node:fs/promises";
 import path from "node:path";
 
 const output = path.resolve("dist/public");
-const routes = ["login", "signup", "wallet", "admin", "404"];
+const routes = ["login", "signup", "wallet", "noura-ops-7x4k9", "404"];
 
 for (const route of routes) {
   const directory = path.join(output, route);

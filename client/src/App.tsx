@@ -16,7 +16,7 @@ function Router() {
         <Route path="/login" component={LoginPage} />
         <Route path="/signup" component={SignupPage} />
         <Route path="/wallet" component={WalletPage} />
-        <Route path="/admin" component={AdminPage} />
+        <Route path="/noura-ops-7x4k9" component={AdminPage} />
         <Route path="/404" component={NotFound} />
         <Route component={NotFound} />
       </Switch>
