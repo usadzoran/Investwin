@@ -18,8 +18,10 @@ export const supabase = createClient(
 export function getSupabaseErrorMessage(message: string) {
   const normalized = message.toLowerCase();
   if (normalized.includes("invalid login credentials")) return "البريد الإلكتروني أو كلمة المرور غير صحيحة.";
-  if (normalized.includes("email not confirmed")) return "يرجى تأكيد بريدك الإلكتروني أولاً.";
+  if (normalized.includes("email not confirmed")) return "تأكيد البريد الإلكتروني مفعّل حالياً في Supabase. عطّل خيار Confirm email من Authentication ثم حاول مرة أخرى.";
   if (normalized.includes("user already registered")) return "هذا البريد الإلكتروني مسجل بالفعل.";
+  if (normalized.includes("database error saving new user") || normalized.includes("user_profiles")) return "قاعدة البيانات غير مكتملة. شغّل ملف supabase/setup.sql كاملاً في SQL Editor ثم أعد المحاولة.";
+  if (normalized.includes("signup is disabled") || normalized.includes("signups not allowed")) return "تسجيل الحسابات معطّل في Supabase. فعّل Allow new users من إعدادات Authentication.";
   if (normalized.includes("password should be at least")) return "يجب أن تتكون كلمة المرور من 6 أحرف على الأقل.";
   if (normalized.includes("rate limit")) return "تم تجاوز عدد المحاولات. حاول مرة أخرى بعد قليل.";
   return "حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.";
