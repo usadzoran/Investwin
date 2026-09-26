@@ -1,0 +1,7 @@
+{
+  "name": "Noura - Web3 Investment & Digital Assets Platform",
+  "description": "منصة رقمية واستثمارية لإدارة المحافظ والأصول المشفرة واستثمارات العائد اليومي بنسبة 20% كل 24 ساعة بأمان كامل.",
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

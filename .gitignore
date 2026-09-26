@@ -5,3 +5,4 @@ dist/
 !.env.example
 .manus-logs/
 .project-config.json
+bun.lock
