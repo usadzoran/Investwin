@@ -831,7 +831,6 @@ export function SignupPage() {
       password,
       options: {
         data: { full_name: name },
-        emailRedirectTo: `${window.location.origin}${import.meta.env.BASE_URL}login`,
       },
     });
     setIsSubmitting(false);
@@ -843,7 +842,7 @@ export function SignupPage() {
       toast.success("تم إنشاء حسابك", { description: "أهلاً بك في مساحتك الجديدة." });
       setLocation("/");
     } else {
-      toast.success("تم إنشاء حسابك", { description: "تحقق من بريدك الإلكتروني لتفعيل الحساب." });
+      toast.error("لم يتم فتح الحساب مباشرة", { description: "عطّل خيار Confirm email من إعدادات Authentication في Supabase ثم حاول مرة أخرى." });
     }
   };
 
