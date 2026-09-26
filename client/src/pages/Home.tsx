@@ -227,9 +227,162 @@ function FeaturesSection() {
   );
 }
 
+function DailyYieldCalculator() {
+  const [amount, setAmount] = useState<number>(10);
+  const [days, setDays] = useState<number>(7);
+
+  const daily = +(amount * 0.20).toFixed(2);
+  const totalProfit = +(daily * days).toFixed(2);
+  const totalReturn = +(amount + totalProfit).toFixed(2);
+
+  return (
+    <section className="shell" style={{ marginBlock: "64px" }}>
+      <div
+        style={{
+          background: "linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)",
+          border: "1.5px solid rgba(16, 185, 129, 0.25)",
+          borderRadius: "22px",
+          padding: "36px",
+          boxShadow: "0 20px 45px -10px rgba(8, 17, 32, 0.08)",
+        }}
+      >
+        <div style={{ textAlign: "center", maxWidth: "600px", margin: "0 auto 30px" }}>
+          <span className="eyebrow-pill">
+            <Zap size={14} /> حاسبة العوائد اليومية
+          </span>
+          <h2 style={{ fontSize: "clamp(26px, 3.2vw, 40px)", fontWeight: 800, marginTop: "12px", color: "var(--ink)" }}>
+            استثمر واحصل على عوائد كل 24 ساعة
+          </h2>
+          <p style={{ color: "var(--muted)", fontSize: "14px", marginTop: "8px", lineHeight: "1.8" }}>
+            حدد كم تريد الاستثمار في محفظة الموقع لمدة أسبوع أو أكثر، وتابع أرباحك اليومية المؤكدة (20% كل 24 ساعة).
+          </p>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "28px", alignItems: "center" }}>
+          {/* Controls */}
+          <div>
+            <label style={{ display: "block", fontSize: "13px", fontWeight: 800, color: "var(--ink)", marginBottom: "8px" }}>
+              كم تريد أن تستثمر؟ (حدد المبلغ بالدولار / USDT):
+            </label>
+            <div className="invest-input-wrap" style={{ marginBottom: "12px" }}>
+              <span className="invest-input-prefix">$</span>
+              <input
+                className="invest-input-field"
+                type="number"
+                min="1"
+                value={amount}
+                onChange={(e) => setAmount(Math.max(1, Number(e.target.value) || 0))}
+              />
+              <span className="invest-input-suffix">USDT</span>
+            </div>
+
+            {/* Quick Chips */}
+            <div className="invest-chips-list" style={{ marginBottom: "20px" }}>
+              {[
+                { val: 5, label: "5$ (ربح 1$ يومياً)" },
+                { val: 10, label: "10$ (ربح 2$ يومياً)" },
+                { val: 25, label: "25$ (ربح 5$ يومياً)" },
+                { val: 50, label: "50$ (ربح 10$ يومياً)" },
+                { val: 100, label: "100$ (ربح 20$ يومياً)" },
+              ].map((chip) => (
+                <button
+                  type="button"
+                  key={chip.val}
+                  className={`invest-chip-btn ${amount === chip.val ? "active" : ""}`}
+                  onClick={() => setAmount(chip.val)}
+                >
+                  {chip.label}
+                </button>
+              ))}
+            </div>
+
+            <label style={{ display: "block", fontSize: "13px", fontWeight: 800, color: "var(--ink)", marginBottom: "8px" }}>
+              مدة الاستثمار (أسبوع أو أكثر):
+            </label>
+            <div className="duration-selector-row">
+              {[
+                { d: 7, label: "أسبوع واحد", sub: "7 أيام" },
+                { d: 14, label: "أسبوعان", sub: "14 يوماً" },
+                { d: 30, label: "شهر كامل", sub: "30 يوماً" },
+              ].map((item) => (
+                <button
+                  type="button"
+                  key={item.d}
+                  className={`duration-btn ${days === item.d ? "active" : ""}`}
+                  onClick={() => setDays(item.d)}
+                >
+                  <strong>{item.label}</strong>
+                  <small>{item.sub}</small>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Result Card */}
+          <div
+            style={{
+              background: "linear-gradient(145deg, #081120 0%, #13243d 100%)",
+              borderRadius: "18px",
+              padding: "26px",
+              color: "white",
+              display: "grid",
+              gap: "14px",
+              boxShadow: "0 15px 35px rgba(8, 17, 32, 0.2)",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.7)" }}>المبلغ المحدد:</span>
+              <strong style={{ fontSize: "18px", fontFamily: "Space Grotesk, sans-serif" }}>${amount} USDT</strong>
+            </div>
+
+            <div
+              style={{
+                background: "rgba(16, 185, 129, 0.12)",
+                border: "1px solid rgba(16, 185, 129, 0.3)",
+                borderRadius: "12px",
+                padding: "14px",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <div>
+                <span style={{ display: "block", fontSize: "11px", color: "#34d399", fontWeight: 700 }}>
+                  الربح كل 24 ساعة (20% يومياً)
+                </span>
+                <small style={{ color: "rgba(255,255,255,0.6)" }}>يُضاف لمحفظتك كل يوم</small>
+              </div>
+              <strong style={{ fontSize: "24px", color: "#34d399", fontFamily: "Space Grotesk, sans-serif" }}>
+                +${daily}
+              </strong>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "13px" }}>
+              <span style={{ color: "rgba(255,255,255,0.7)" }}>إجمالي أرباح المدة ({days} أيام):</span>
+              <strong style={{ color: "#fbbf24", fontFamily: "Space Grotesk, sans-serif", fontSize: "16px" }}>
+                +${totalProfit} USDT
+              </strong>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", borderTop: "1px dashed rgba(255,255,255,0.15)", paddingTop: "10px" }}>
+              <span style={{ fontWeight: 800 }}>إجمالي العائد (رأس المال + الأرباح):</span>
+              <strong style={{ fontSize: "20px", color: "white", fontFamily: "Space Grotesk, sans-serif" }}>
+                ${totalReturn} USDT
+              </strong>
+            </div>
+
+            <Link href="/wallet" className="button button-accent button-large" style={{ marginTop: "8px", width: "100%" }}>
+              ابدأ هذا الاستثمار الآن في المحفظة <ArrowUpLeft size={18} />
+            </Link>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function FAQSection() {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
-
   const faqs = [
     {
       q: "هل تحتفظ المنصة بمفاتيحي الخاصة أو أموالي؟",
@@ -335,6 +488,9 @@ export default function Home() {
         {/* Features Section */}
         <FeaturesSection />
 
+        {/* Interactive 24h Daily Yield Calculator */}
+        <DailyYieldCalculator />
+
         {/* Story Section */}
         <section id="story" className="story-section shell">
           <div className="section-label">
@@ -379,25 +535,25 @@ export default function Home() {
               {[
                 {
                   id: "01",
-                  title: "مسار البداية الواعية",
-                  description: "للتعرف على الأصول الرقمية وبناء أول محفظة مع التركيز على العملات المستقرة.",
-                  risk: "مخاطر منخفضة",
+                  title: "خطة استثمار 5$",
+                  description: "استثمر 5$ واحصل على 1$ كل 24 ساعة (إجمالي 7$ أرباح خلال أسبوع).",
+                  risk: "+1$ كل 24 ساعة",
                   riskClass: "low",
                   popular: false,
                 },
                 {
                   id: "02",
-                  title: "مسار النمو المتوازن",
-                  description: "تنويع استراتيجي بين الشبكات الكبرى لتعزيز الأداء وتوزيع الأصول بذكاء.",
-                  risk: "مخاطر متوازنة",
+                  title: "خطة استثمار 10$",
+                  description: "استثمر 10$ واحصل على 2$ كل 24 ساعة (إجمالي 14$ أرباح خلال أسبوع).",
+                  risk: "+2$ كل 24 ساعة",
                   riskClass: "mid",
                   popular: true,
                 },
                 {
                   id: "03",
-                  title: "مسار الرؤية المتقدمة",
-                  description: "للمستثمرين المتمرسين الباحثين عن أدوات تحليلية وتتبع عميق للسيولة والشبكات.",
-                  risk: "مخاطر متقدمة",
+                  title: "خطة استثمار مخصصة (حدد المبلغ)",
+                  description: "حدد أي مبلغ تريده (25$، 50$، 100$...) مع نسبة ربح 20% كل 24 ساعة وسحب يومي فوري.",
+                  risk: "20% يومياً",
                   riskClass: "high",
                   popular: false,
                 },
@@ -410,7 +566,7 @@ export default function Home() {
                     <span className={`track-badge ${track.riskClass}`}>{track.risk}</span>
                   </div>
                   <Link href="/wallet" className="button button-small button-outline">
-                    ابدأ <ArrowUpLeft size={14} />
+                    استثمر الآن <ArrowUpLeft size={14} />
                   </Link>
                 </div>
               ))}
