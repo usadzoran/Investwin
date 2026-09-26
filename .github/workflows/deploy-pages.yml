@@ -32,8 +32,8 @@ jobs:
       - name: Build static site
         run: pnpm run build:pages
         env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          # Supabase URL and anon key are embedded as the current public fallbacks
+          # in client/src/lib/supabase.ts so stale repository secrets cannot override them.
           VITE_WALLETCONNECT_PROJECT_ID: ${{ secrets.VITE_WALLETCONNECT_PROJECT_ID }}
       - name: Configure Pages
         uses: actions/configure-pages@v5
