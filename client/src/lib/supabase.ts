@@ -20,6 +20,7 @@ export function getSupabaseErrorMessage(message: string) {
   if (normalized.includes("invalid login credentials")) return "البريد الإلكتروني أو كلمة المرور غير صحيحة.";
   if (normalized.includes("email not confirmed")) return "تأكيد البريد الإلكتروني مفعّل حالياً في Supabase. عطّل خيار Confirm email من Authentication ثم حاول مرة أخرى.";
   if (normalized.includes("user already registered")) return "هذا البريد الإلكتروني مسجل بالفعل.";
+  if (normalized.includes("email signups are disabled")) return "تسجيل البريد الإلكتروني معطّل. فعّل مزود Email من Authentication → Providers في Supabase.";
   if (normalized.includes("database error saving new user") || normalized.includes("user_profiles")) return "قاعدة البيانات غير مكتملة. شغّل ملف supabase/setup.sql كاملاً في SQL Editor ثم أعد المحاولة.";
   if (normalized.includes("signup is disabled") || normalized.includes("signups not allowed")) return "تسجيل الحسابات معطّل في Supabase. فعّل Allow new users من إعدادات Authentication.";
   if (normalized.includes("password should be at least")) return "يجب أن تتكون كلمة المرور من 6 أحرف على الأقل.";
