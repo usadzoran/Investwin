@@ -1,18 +1,21 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { toast } from "sonner";
 import {
   ArrowLeft,
   ArrowUpLeft,
+  BarChart3,
   Check,
   ChevronDown,
   Eye,
   EyeOff,
   Home as HomeIcon,
+  History,
   Instagram,
   Layers,
   LockKeyhole,
   LogIn,
+  LogOut,
   Mail,
   MessageCircle,
   ShieldCheck,
@@ -20,10 +23,12 @@ import {
   TrendingUp,
   Twitter,
   UserRound,
+  UserCircle,
   WalletCards,
   Zap,
 } from "lucide-react";
 import { getSupabaseErrorMessage, supabase } from "@/lib/supabase";
+import { loadUserDeposits } from "@/lib/walletData";
 
 function Logo({ light = false }: { light?: boolean }) {
   return (
@@ -438,7 +443,64 @@ function FAQSection() {
   );
 }
 
-export default function Home() {
+type DashboardUser = { id: string; email?: string; user_metadata?: { full_name?: string } };
+type MarketItem = { symbol: string; name: string; price: number; change: number };
+
+function UserDashboard({ user }: { user: DashboardUser }) {
+  const [, setLocation] = useLocation();
+  const [activeSection, setActiveSection] = useState<"overview" | "profile" | "market" | "wallet" | "history" | "investment">("overview");
+  const [market, setMarket] = useState<MarketItem[]>([]);
+  const [historyCount, setHistoryCount] = useState(0);
+  const fullName = user.user_metadata?.full_name?.trim() || "مستثمر نورة";
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,tether,polygon&vs_currencies=usd&include_24hr_change=true")
+      .then((response) => response.ok ? response.json() : Promise.reject(new Error("market")))
+      .then((data: Record<string, { usd?: number; usd_24h_change?: number }>) => {
+        if (cancelled) return;
+        setMarket([
+          { symbol: "BTC", name: "Bitcoin", price: data.bitcoin?.usd ?? 0, change: data.bitcoin?.usd_24h_change ?? 0 },
+          { symbol: "ETH", name: "Ethereum", price: data.ethereum?.usd ?? 0, change: data.ethereum?.usd_24h_change ?? 0 },
+          { symbol: "USDT", name: "Tether", price: data.tether?.usd ?? 1, change: data.tether?.usd_24h_change ?? 0 },
+          { symbol: "POL", name: "Polygon", price: data.polygon?.usd ?? 0, change: data.polygon?.usd_24h_change ?? 0 },
+        ]);
+      })
+      .catch(() => { if (!cancelled) setMarket([{ symbol: "BTC", name: "Bitcoin", price: 0, change: 0 }, { symbol: "ETH", name: "Ethereum", price: 0, change: 0 }, { symbol: "USDT", name: "Tether", price: 1, change: 0 }]); });
+    void loadUserDeposits(user.id).then((records) => { if (!cancelled) setHistoryCount(records.length); });
+    return () => { cancelled = true; };
+  }, [user.id]);
+
+  const signOut = async () => { await supabase.auth.signOut(); toast.success("تم تسجيل الخروج بأمان"); setLocation("/"); };
+  const menu = [
+    { id: "overview" as const, label: "الرئيسية", icon: HomeIcon },
+    { id: "profile" as const, label: "معلوماتي", icon: UserCircle },
+    { id: "market" as const, label: "السوق", icon: BarChart3 },
+    { id: "wallet" as const, label: "المحفظة", icon: WalletCards },
+    { id: "history" as const, label: "السجل", icon: History },
+    { id: "investment" as const, label: "الاستثمار", icon: TrendingUp },
+  ];
+
+  return (
+    <div className="user-dashboard" dir="rtl">
+      <header className="user-dashboard-header"><Logo /><div className="user-welcome"><span>مرحباً،</span><strong>{fullName}</strong></div><button type="button" className="user-signout" onClick={() => void signOut()}><LogOut size={16} /> خروج</button></header>
+      <div className="user-dashboard-layout">
+        <aside className="user-sidebar"><div className="user-sidebar-profile"><div className="user-avatar"><UserRound size={22} /></div><div><strong>{fullName}</strong><small>{user.email}</small></div></div><nav aria-label="قائمة المستخدم">{menu.map((item) => { const Icon = item.icon; return <button type="button" key={item.id} className={activeSection === item.id ? "active" : ""} onClick={() => setActiveSection(item.id)}><Icon size={17} /><span>{item.label}</span></button>; })}</nav></aside>
+        <main className="user-dashboard-main">
+          {activeSection === "overview" && <><div className="user-section-heading"><span className="eyebrow-pill"><Sparkles size={14} /> مساحة المستخدم</span><h1>لوحتك المالية في مكان واحد.</h1><p>تابع محفظتك، السوق، وسجل عملياتك من واجهة واحدة متزامنة مع حسابك.</p></div><div className="user-summary-grid"><div className="user-summary-card dark"><small>حالة الحساب</small><strong>نشط</strong><span>متصل بـ Supabase Auth</span></div><div className="user-summary-card"><small>سجل العمليات</small><strong>{historyCount}</strong><span>إيداعات مسجلة في حسابك</span></div><div className="user-summary-card accent"><small>المحفظة غير الوصائية</small><strong>Web3</strong><span>أنت تملك مفاتيحك وأصولك</span></div></div><div className="user-feature-grid"><button type="button" onClick={() => setActiveSection("wallet")}><WalletCards size={23} /><strong>محفظتي</strong><span>اربط MetaMask أو WalletConnect وأدر USDT.</span></button><button type="button" onClick={() => setActiveSection("market")}><BarChart3 size={23} /><strong>السوق المباشر</strong><span>راقب أسعار العملات وتغيرها خلال 24 ساعة.</span></button><button type="button" onClick={() => setActiveSection("investment")}><TrendingUp size={23} /><strong>مساحة الاستثمار</strong><span>راجع خيارات الإيداع والاستثمار قبل التوقيع.</span></button></div></>}
+          {activeSection === "profile" && <section className="user-panel"><h2><UserCircle size={23} /> معلوماتي الشخصية</h2><div className="profile-details"><div><small>الاسم</small><strong>{fullName}</strong></div><div><small>البريد الإلكتروني</small><strong dir="ltr">{user.email}</strong></div><div><small>معرّف الحساب</small><strong className="mono">{user.id}</strong></div><div><small>حالة الحساب</small><strong>متصل عبر Supabase</strong></div></div></section>}
+          {activeSection === "market" && <section className="user-panel"><div className="panel-heading"><h2><BarChart3 size={23} /> السوق المباشر</h2><span>بيانات عامة من CoinGecko</span></div><div className="market-table">{market.map((item) => <div className="market-row" key={item.symbol}><div className="market-coin"><b>{item.symbol}</b><span>{item.name}</span></div><strong>{item.price ? `$${item.price.toLocaleString("en-US", { maximumFractionDigits: item.price < 2 ? 4 : 2 })}` : "—"}</strong><span className={item.change >= 0 ? "market-up" : "market-down"}>{item.change ? `${item.change >= 0 ? "+" : ""}${item.change.toFixed(2)}%` : "—"}</span></div>)}</div></section>}
+          {activeSection === "wallet" && <section className="user-panel"><h2><WalletCards size={23} /> محفظتي الرقمية</h2><p>المحفظة غير وصائية: لا تُرسل الأموال إلى أي عنوان إلا بعد مراجعته وتوقيعه من محفظتك.</p><Link href="/wallet" className="button button-accent button-large">فتح المحفظة وربط Web3 <ArrowUpLeft size={18} /></Link></section>}
+          {activeSection === "history" && <section className="user-panel"><h2><History size={23} /> السجل الخاص بي</h2><p>كل إيداعاتك وحالات مراجعتها محفوظة في قاعدة Supabase الخاصة بحسابك.</p><div className="history-empty"><History size={28} /><strong>{historyCount ? `${historyCount} عملية مسجلة` : "لا توجد عمليات بعد"}</strong><span>ستظهر معاملاتك هنا بعد إرسال أول إيداع.</span></div></section>}
+          {activeSection === "investment" && <section className="user-panel investment-user-panel"><h2><TrendingUp size={23} /> الاستثمار</h2><div className="investment-notice"><ShieldCheck size={21} /><div><strong>محفظة الاستثمار تحت اختيارك</strong><p>اختر المبلغ، ثم انتقل إلى المحفظة لإيداع USDT أو إرساله. لا يتم تحويل أي أموال تلقائياً ولا يتم الخصم دون توقيعك.</p></div></div><Link href="/wallet" className="button button-accent button-large">اختيار مبلغ الاستثمار في المحفظة <ArrowUpLeft size={18} /></Link></section>}
+        </main>
+      </div>
+      <nav className="user-mobile-nav" aria-label="قائمة المستخدم السفلية">{menu.map((item) => { const Icon = item.icon; return <button type="button" key={item.id} className={activeSection === item.id ? "active" : ""} onClick={() => setActiveSection(item.id)}><Icon size={17} /><span>{item.label}</span></button>; })}</nav>
+    </div>
+  );
+}
+
+function PublicHome() {
   return (
     <div className="site-page" dir="rtl">
       <Header />
@@ -905,4 +967,17 @@ export function SignupPage() {
       </button>
     </AuthShell>
   );
+}
+
+export default function Home() {
+  const [user, setUser] = useState<DashboardUser | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    void supabase.auth.getUser().then(({ data }) => { if (mounted) setUser(data.user as DashboardUser | null); });
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => { if (mounted) setUser((session?.user as DashboardUser | undefined) ?? null); });
+    return () => { mounted = false; listener.subscription.unsubscribe(); };
+  }, []);
+
+  return user ? <UserDashboard user={user} /> : <PublicHome />;
 }
