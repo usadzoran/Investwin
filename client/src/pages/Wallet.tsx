@@ -76,7 +76,7 @@ function formatCountdown(ms: number) {
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
-export default function WalletPage() {
+export default function WalletPage({ embedded = false }: { embedded?: boolean; params?: Record<string, string | undefined> }) {
   const [, navigate] = useLocation();
   const [provider, setProvider] = useState<Eip1193Provider | null>(null);
   const [source, setSource] = useState<WalletSource | null>(null);
@@ -393,10 +393,10 @@ export default function WalletPage() {
 
   return (
     <div className="wallet-page" dir="rtl">
-      <header className="wallet-header">
+      {!embedded && <header className="wallet-header">
         <WalletLogo />
         <Link href="/" className="wallet-home-link"><Home size={16} /> الرئيسية</Link>
-      </header>
+      </header>}
       <main className="wallet-shell">
         <div className="wallet-heading-row">
           <div><div className="wallet-eyebrow"><ShieldCheck size={14} /> محفظتك غير الوصائية</div><h1>أرسل واستقبل <em>USDT.</em></h1><p>أموالك تبقى تحت سيطرتك. كل معاملة تحتاج موافقتك داخل المحفظة.</p></div>
@@ -730,9 +730,9 @@ export default function WalletPage() {
             </section>
           </>
         )}
-        <div className="wallet-back-links"><Link href="/"><ArrowLeft size={15} /> العودة إلى الصفحة الرئيسية</Link><span>نورة لا تطلب منك أبداً مفتاحك الخاص أو عبارة الاسترداد.</span></div>
+        {!embedded && <div className="wallet-back-links"><Link href="/"><ArrowLeft size={15} /> العودة إلى الصفحة الرئيسية</Link><span>نورة لا تطلب منك أبداً مفتاحك الخاص أو عبارة الاسترداد.</span></div>}
       </main>
-      <nav className="wallet-bottom-nav"><Link href="/"><Home size={16} /><span>الرئيسية</span></Link><Link href="/wallet" className="active"><WalletCards size={16} /><span>المحفظة</span></Link><Link href="/login"><ArrowUpRight size={16} /><span>الحساب</span></Link></nav>
+      {!embedded && <nav className="wallet-bottom-nav"><Link href="/"><Home size={16} /><span>الرئيسية</span></Link><Link href="/wallet" className="active"><WalletCards size={16} /><span>المحفظة</span></Link><Link href="/login"><ArrowUpRight size={16} /><span>الحساب</span></Link></nav>}
     </div>
   );
 }
