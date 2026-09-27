@@ -70,6 +70,10 @@ const ERC20_ABI = [
 
 let walletConnectProviderPromise: Promise<Eip1193Provider> | null = null;
 
+export function getWalletConnectMetadataUrl(origin = window.location.origin, basePath = import.meta.env.BASE_URL || "/") {
+  return new URL(basePath, origin).toString();
+}
+
 export async function getWalletConnectProvider() {
   const configuredProjectId = (import.meta.env.VITE_WALLETCONNECT_PROJECT_ID as string | undefined)?.trim();
   const projectId = configuredProjectId || "1e303f141fd5e654983c342b597735fb";
@@ -82,7 +86,9 @@ export async function getWalletConnectProvider() {
       metadata: {
         name: "Noura",
         description: "محفظة Noura غير الوصائية",
-        url: window.location.origin,
+        // GitHub Pages hosts this app below /Investwin/, not at the domain root.
+        // Trust Wallet uses this URL when returning to the dApp after approval.
+        url: getWalletConnectMetadataUrl(),
         icons: [],
       },
     }).then((provider) => provider as unknown as Eip1193Provider).catch((error) => {
