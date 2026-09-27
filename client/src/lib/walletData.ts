@@ -33,10 +33,11 @@ function safeJsonSet<T>(key: string, value: T): void {
 }
 
 export async function getCurrentUser() {
+  const { data: sessionData } = await supabase.auth.getSession();
+  if (sessionData.session?.user) return sessionData.session.user;
+
   const { data, error } = await supabase.auth.getUser();
-  if (error || !data.user) {
-    throw new Error("يجب تسجيل الدخول قبل استخدام المحفظة.");
-  }
+  if (error || !data.user) throw new Error("يجب تسجيل الدخول قبل استخدام المحفظة.");
   return data.user;
 }
 
