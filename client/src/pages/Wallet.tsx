@@ -51,6 +51,8 @@ import {
   claimInvestmentProfits,
   withdrawPlanPrincipal,
   saveUserInvestments,
+  getWalletDailyWithdrawalSummary,
+  DAILY_WITHDRAWAL_LIMIT_USDT,
 } from "@/lib/walletData";
 
 const chainKeys = Object.keys(SUPPORTED_CHAINS) as ChainKey[];
@@ -108,6 +110,9 @@ export default function WalletPage({ embedded = false }: { embedded?: boolean; p
   const completedDepositTotal = deposits
     .filter((deposit) => deposit.status === "completed" && typeof deposit.amount === "number")
     .reduce((total, deposit) => total + (deposit.amount ?? 0), 0);
+  const dailyWithdrawal = address
+    ? getWalletDailyWithdrawalSummary(address)
+    : { limit: DAILY_WITHDRAWAL_LIMIT_USDT, withdrawn: 0, remaining: DAILY_WITHDRAWAL_LIMIT_USDT };
 
   // Real-time calculation based on user input
   const numInvest = Math.max(1, Number(investAmount) || 0);
@@ -179,7 +184,7 @@ export default function WalletPage({ embedded = false }: { embedded?: boolean; p
   const handleClaimProfit = (planId: string) => {
     if (!userId) return;
     try {
-      const result = claimInvestmentProfits(userId, planId);
+      const result = claimInvestmentProfits(userId, planId, address);
       setInvestments((prev) => prev.map((p) => (p.id === planId ? result.plan : p)));
       toast.success(`تم سحب ${result.claimed}$ أرباح بنجاح إلى رصيدك!`, {
         description: "تم تحويل أرباح الـ 24 ساعة إلى محفظتك مباشرة.",
@@ -192,11 +197,11 @@ export default function WalletPage({ embedded = false }: { embedded?: boolean; p
   const handleWithdrawPrincipal = (planId: string) => {
     if (!userId) return;
     try {
-      const updated = withdrawPlanPrincipal(userId, planId);
+      const updated = withdrawPlanPrincipal(userId, planId, address);
       setInvestments((prev) => prev.map((p) => (p.id === planId ? updated : p)));
       toast.success("تم استرداد رأس المال بالكامل بنجاح!");
-    } catch {
-      toast.error("تعذر استرداد رأس المال.");
+    } catch (e: any) {
+      toast.error(e?.message || "تعذر استرداد رأس المال.");
     }
   };
 
@@ -652,6 +657,7 @@ export default function WalletPage({ embedded = false }: { embedded?: boolean; p
                 </div>
                 <span className="deposit-count">{investments.length} خطط</span>
               </div>
+              <div className="withdrawal-security-note"><ShieldCheck size={15} /><span>حماية السحب: استُخدم {dailyWithdrawal.withdrawn.toFixed(2)} من {dailyWithdrawal.limit.toFixed(2)} USDT اليوم لهذه المحفظة — المتبقي {dailyWithdrawal.remaining.toFixed(2)} USDT. يمنع النظام السحب المتكرر أو تجاوز الحد.</span></div>
 
               {investments.length === 0 ? (
                 <div className="deposit-empty">
@@ -695,7 +701,7 @@ export default function WalletPage({ embedded = false }: { embedded?: boolean; p
                           <button
                             type="button"
                             className="claim-btn"
-                            disabled={info.claimableProfit <= 0}
+                            disabled={info.claimableProfit <= 0 || info.claimableProfit > dailyWithdrawal.remaining}
                             onClick={() => handleClaimProfit(plan.id)}
                           >
                             <Coins size={14} />
@@ -723,6 +729,7 @@ export default function WalletPage({ embedded = false }: { embedded?: boolean; p
                               <button
                                 type="button"
                                 className="button button-small button-outline"
+                                disabled={plan.amount > dailyWithdrawal.remaining}
                                 onClick={() => handleWithdrawPrincipal(plan.id)}
                               >
                                 استرداد رأس المال (${plan.amount})

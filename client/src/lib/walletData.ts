@@ -13,6 +13,20 @@ const USERS_STORAGE_KEY = `${STORAGE_PREFIX}users`;
 const DEPOSITS_STORAGE_KEY = `${STORAGE_PREFIX}deposits`;
 const TRANSFERS_STORAGE_KEY = `${STORAGE_PREFIX}transfers`;
 const INVESTMENTS_STORAGE_KEY = `${STORAGE_PREFIX}investments`;
+const WITHDRAWALS_STORAGE_KEY = `${STORAGE_PREFIX}withdrawals`;
+const WITHDRAWAL_LOCK_PREFIX = `${STORAGE_PREFIX}withdrawal_lock_`;
+export const DAILY_WITHDRAWAL_LIMIT_USDT = 1000;
+
+export type WithdrawalKind = "profit" | "principal";
+export type WithdrawalRecord = {
+  id: string;
+  userId: string;
+  walletAddress: string;
+  planId: string;
+  amount: number;
+  kind: WithdrawalKind;
+  createdAt: string;
+};
 
 function safeJsonParse<T>(key: string, defaultValue: T): T {
   try {
@@ -196,6 +210,54 @@ export function saveUserInvestments(userId: string, plans: InvestmentPlan[]): vo
   }
 }
 
+function normalizeWalletAddress(address: string) {
+  return address.trim().toLowerCase();
+}
+
+function utcDay(value = new Date()) {
+  return value.toISOString().slice(0, 10);
+}
+
+export function getWalletDailyWithdrawalSummary(walletAddress: string, now = new Date()) {
+  const wallet = normalizeWalletAddress(walletAddress);
+  const records = safeJsonParse<WithdrawalRecord[]>(WITHDRAWALS_STORAGE_KEY, []);
+  const withdrawnToday = records
+    .filter((record) => normalizeWalletAddress(record.walletAddress) === wallet && utcDay(new Date(record.createdAt)) === utcDay(now))
+    .reduce((total, record) => total + record.amount, 0);
+  return {
+    limit: DAILY_WITHDRAWAL_LIMIT_USDT,
+    withdrawn: +withdrawnToday.toFixed(2),
+    remaining: +Math.max(0, DAILY_WITHDRAWAL_LIMIT_USDT - withdrawnToday).toFixed(2),
+  };
+}
+
+function acquireWithdrawalLock(walletAddress: string) {
+  const key = `${WITHDRAWAL_LOCK_PREFIX}${normalizeWalletAddress(walletAddress)}`;
+  const existing = safeJsonParse<{ createdAt: number } | null>(key, null);
+  if (existing && Date.now() - existing.createdAt < 30_000) throw new Error("هناك عملية سحب قيد المعالجة. انتظر قليلًا ثم حاول مرة أخرى.");
+  safeJsonSet(key, { createdAt: Date.now() });
+  return () => { try { localStorage.removeItem(key); } catch { /* storage unavailable */ } };
+}
+
+function authorizeWithdrawal(input: { userId: string; walletAddress: string; plan: InvestmentPlan; amount: number }) {
+  if (!input.walletAddress.trim() || normalizeWalletAddress(input.plan.walletAddress) !== normalizeWalletAddress(input.walletAddress)) {
+    throw new Error("يجب أن تتطابق المحفظة المتصلة مع محفظة خطة الاستثمار.");
+  }
+  if (input.plan.userId !== input.userId) throw new Error("لا تملك صلاحية سحب هذه الخطة.");
+  if (!Number.isFinite(input.amount) || input.amount <= 0) throw new Error("مبلغ السحب غير صالح.");
+  const summary = getWalletDailyWithdrawalSummary(input.walletAddress);
+  if (input.amount > summary.remaining) {
+    throw new Error(`تجاوز الحد اليومي للسحب. المتاح لمحفظتك اليوم: ${summary.remaining.toFixed(2)} USDT من ${summary.limit.toFixed(2)} USDT.`);
+  }
+  return { release: acquireWithdrawalLock(input.walletAddress), summary };
+}
+
+function recordWithdrawal(input: Omit<WithdrawalRecord, "id" | "createdAt">) {
+  const records = safeJsonParse<WithdrawalRecord[]>(WITHDRAWALS_STORAGE_KEY, []);
+  records.push({ ...input, id: `wd_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`, createdAt: new Date().toISOString() });
+  safeJsonSet(WITHDRAWALS_STORAGE_KEY, records);
+}
+
 export function createInvestmentPlan(input: {
   userId: string;
   walletAddress: string;
@@ -259,7 +321,7 @@ export function getPlanEarningsInfo(plan: InvestmentPlan) {
   };
 }
 
-export function claimInvestmentProfits(userId: string, planId: string): { claimed: number; plan: InvestmentPlan } {
+export function claimInvestmentProfits(userId: string, planId: string, walletAddress: string): { claimed: number; plan: InvestmentPlan } {
   const plans = loadUserInvestments(userId);
   const index = plans.findIndex((p) => p.id === planId);
   if (index === -1) throw new Error("الخطة غير موجودة.");
@@ -271,34 +333,44 @@ export function claimInvestmentProfits(userId: string, planId: string): { claime
     throw new Error("لم تنتهِ دورة الـ 24 ساعة الحالية بعد للحصول على أرباح جديدة.");
   }
 
-  const updatedPlan: InvestmentPlan = {
-    ...plan,
-    claimedProfits: +(plan.claimedProfits + claimableProfit).toFixed(2),
-    lastClaimAt: new Date().toISOString(),
-    status: isCompleted ? "completed" : "active",
-  };
-
-  plans[index] = updatedPlan;
-  saveUserInvestments(userId, plans);
-
-  return { claimed: claimableProfit, plan: updatedPlan };
+  const authorization = authorizeWithdrawal({ userId, walletAddress, plan, amount: claimableProfit });
+  try {
+    const updatedPlan: InvestmentPlan = {
+      ...plan,
+      claimedProfits: +(plan.claimedProfits + claimableProfit).toFixed(2),
+      lastClaimAt: new Date().toISOString(),
+      status: isCompleted ? "completed" : "active",
+    };
+    plans[index] = updatedPlan;
+    saveUserInvestments(userId, plans);
+    recordWithdrawal({ userId, walletAddress, planId, amount: claimableProfit, kind: "profit" });
+    return { claimed: claimableProfit, plan: updatedPlan };
+  } finally {
+    authorization.release();
+  }
 }
 
-export function withdrawPlanPrincipal(userId: string, planId: string): InvestmentPlan {
+export function withdrawPlanPrincipal(userId: string, planId: string, walletAddress: string): InvestmentPlan {
   const plans = loadUserInvestments(userId);
   const index = plans.findIndex((p) => p.id === planId);
   if (index === -1) throw new Error("الخطة غير موجودة.");
 
   const plan = plans[index];
+  if (plan.status === "withdrawn") throw new Error("تم سحب رأس مال هذه الخطة مسبقًا.");
+  const authorization = authorizeWithdrawal({ userId, walletAddress, plan, amount: plan.amount });
   const updatedPlan: InvestmentPlan = {
     ...plan,
     status: "withdrawn",
   };
 
-  plans[index] = updatedPlan;
-  saveUserInvestments(userId, plans);
-
-  return updatedPlan;
+  try {
+    plans[index] = updatedPlan;
+    saveUserInvestments(userId, plans);
+    recordWithdrawal({ userId, walletAddress, planId, amount: plan.amount, kind: "principal" });
+    return updatedPlan;
+  } finally {
+    authorization.release();
+  }
 }
 
 // =========================================================================
