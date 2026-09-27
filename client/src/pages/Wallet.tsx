@@ -410,7 +410,8 @@ export default function WalletPage({ embedded = false }: { embedded?: boolean; p
           <section className="wallet-connect-card">
             <div className="wallet-card-icon"><WalletCards size={25} /></div>
             <div><h2>اربط محفظتك للبدء</h2><p>لا نطلب أبداً العبارة السرية أو المفتاح الخاص.</p></div>
-            <div className="wallet-connect-actions"><button className="wallet-connect-button wallet-connect-metamask" disabled={isConnecting} onClick={() => void connect("metamask")}>🦊 <span>{isConnecting ? "جارٍ الربط…" : "MetaMask"}</span></button><button className="wallet-connect-button" disabled={isConnecting} onClick={() => void connect("walletconnect")}>⌁ <span>WalletConnect</span></button></div>
+            <div className="wallet-connect-actions"><button className="wallet-connect-button wallet-connect-metamask" disabled={isConnecting} onClick={() => void connect("metamask")}>🦊 <span>{isConnecting ? "جارٍ الربط…" : "MetaMask"}</span></button><button className="wallet-connect-button" disabled={isConnecting} onClick={() => void connect("walletconnect")}>⌁ <span>{isConnecting ? "جارٍ فتح قائمة المحافظ…" : "محافظ أخرى"}</span></button></div>
+            <p className="wallet-connect-hint">يفتح الخيار الثاني قائمة Trust Wallet وCoinbase وBinance وOKX وغيرها عبر WalletConnect.</p>
             <div className="wallet-balance-preview"><div><small>الإيداعات المكتملة المسجلة</small><strong>{completedDepositTotal.toLocaleString("en-US", { maximumFractionDigits: 4 })} <span>USDT</span></strong></div><span>الرصيد الحقيقي على الشبكة يظهر فور ربط محفظتك</span></div>
             <div className="wallet-safety-note"><ShieldCheck size={15} /> الاتصال غير وصائي — لا نملك صلاحية نقل أموالك.</div>
           </section>
@@ -598,6 +599,16 @@ export default function WalletPage({ embedded = false }: { embedded?: boolean; p
                       فتح Binance <ExternalLink size={14} />
                     </a>
                   </div>
+                  <div className="external-deposit-card">
+                    <strong>إيداع من منصة أو محفظة أخرى</strong>
+                    <p>استخدم العنوان والشبكة أعلاه في Binance أو Coinbase أو OKX أو أي محفظة أخرى. لا ترسل شبكة مختلفة.</p>
+                    <div className="external-platform-links">
+                      <a href="https://www.binance.com/en/my/wallet/account/main" target="_blank" rel="noreferrer">Binance <ExternalLink size={12} /></a>
+                      <a href="https://www.coinbase.com/assets" target="_blank" rel="noreferrer">Coinbase <ExternalLink size={12} /></a>
+                      <a href="https://www.okx.com/web3" target="_blank" rel="noreferrer">OKX <ExternalLink size={12} /></a>
+                    </div>
+                  </div>
+                  <div className="external-deposit-note"><ArrowDownToLine size={15} /><span>يمكن لمستخدم آخر الإيداع لك أيضًا: أرسل له عنوانك فقط، وليختر نفس شبكة <b>{chain.name}</b>.</span></div>
                   <a className="explorer-link" href={`${chain.explorer}/address/${address}`} target="_blank" rel="noreferrer">
                     عرض العنوان على المستكشف <ExternalLink size={14} />
                   </a>
@@ -608,11 +619,11 @@ export default function WalletPage({ embedded = false }: { embedded?: boolean; p
                 <form className="send-panel" onSubmit={submitTransfer}>
                   <div>
                     <h2>إرسال USDT</h2>
-                    <p>ستراجع وتوقع المعاملة داخل {connectionLabel} قبل الإرسال.</p>
+                    <p>أرسل إلى منصة أخرى أو إلى محفظة مستخدم آخر. ستراجع وتوقع المعاملة داخل {connectionLabel} قبل الإرسال.</p>
                   </div>
                   <label>
                     عنوان المستلم
-                    <input value={recipient} onChange={(event) => setRecipient(event.target.value)} placeholder="0x…" dir="ltr" />
+                    <input value={recipient} onChange={(event) => setRecipient(event.target.value)} placeholder="عنوان منصة أو مستخدم آخر: 0x…" dir="ltr" />
                   </label>
                   <label>
                     الكمية

@@ -83,6 +83,9 @@ export async function getWalletConnectProvider() {
       projectId,
       optionalChains: [1, 137, 56],
       showQrModal: true,
+      qrModalOptions: {
+        enableMobileFullScreen: true,
+      },
       metadata: {
         name: "Noura",
         description: "محفظة Noura غير الوصائية",
