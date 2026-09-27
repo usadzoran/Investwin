@@ -105,6 +105,9 @@ export default function WalletPage({ embedded = false }: { embedded?: boolean; p
   const chain = SUPPORTED_CHAINS[activeChain];
   const isWrongNetwork = Boolean(snapshot?.wrongNetwork);
   const displayBalance = snapshot?.usdtBalance === "—" ? "—" : Number(snapshot?.usdtBalance ?? 0).toLocaleString("en-US", { maximumFractionDigits: 4 });
+  const completedDepositTotal = deposits
+    .filter((deposit) => deposit.status === "completed" && typeof deposit.amount === "number")
+    .reduce((total, deposit) => total + (deposit.amount ?? 0), 0);
 
   // Real-time calculation based on user input
   const numInvest = Math.max(1, Number(investAmount) || 0);
@@ -408,6 +411,7 @@ export default function WalletPage({ embedded = false }: { embedded?: boolean; p
             <div className="wallet-card-icon"><WalletCards size={25} /></div>
             <div><h2>اربط محفظتك للبدء</h2><p>لا نطلب أبداً العبارة السرية أو المفتاح الخاص.</p></div>
             <div className="wallet-connect-actions"><button className="wallet-connect-button wallet-connect-metamask" disabled={isConnecting} onClick={() => void connect("metamask")}>🦊 <span>{isConnecting ? "جارٍ الربط…" : "MetaMask"}</span></button><button className="wallet-connect-button" disabled={isConnecting} onClick={() => void connect("walletconnect")}>⌁ <span>WalletConnect</span></button></div>
+            <div className="wallet-balance-preview"><div><small>الإيداعات المكتملة المسجلة</small><strong>{completedDepositTotal.toLocaleString("en-US", { maximumFractionDigits: 4 })} <span>USDT</span></strong></div><span>الرصيد الحقيقي على الشبكة يظهر فور ربط محفظتك</span></div>
             <div className="wallet-safety-note"><ShieldCheck size={15} /> الاتصال غير وصائي — لا نملك صلاحية نقل أموالك.</div>
           </section>
         ) : (
