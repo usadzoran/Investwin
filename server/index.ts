@@ -39,8 +39,9 @@ async function startServer() {
         return;
       }
       const result = await getOrCreatePolygonDepositAddress(data.user.id);
+      const network = process.env.POLYGON_NETWORK?.trim().toLowerCase() === "amoy" ? "amoy" : "mainnet";
       res.setHeader("Cache-Control", "no-store");
-      res.json({ network: "polygon", chain_id: 137, ...result });
+      res.json({ network: `polygon-${network}`, chain_id: network === "amoy" ? 80002 : 137, ...result });
     } catch (error) {
       console.error("Polygon deposit address error", error);
       res.status(500).json({ error: "Unable to allocate a Polygon deposit address" });
