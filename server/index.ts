@@ -4,6 +4,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { createClient } from "@supabase/supabase-js";
 import { getOrCreatePolygonDepositAddress, isValidSupabaseBearerToken } from "./deposit-address.js";
+import { sweepPolygonUsdt } from "./polygon-sweep.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -11,6 +12,7 @@ const __dirname = path.dirname(__filename);
 async function startServer() {
   const app = express();
   const server = createServer(app);
+  app.use(express.json({ limit: "16kb" }));
 
   // Serve static files from dist/public in production
   const staticPath =
@@ -45,6 +47,40 @@ async function startServer() {
     } catch (error) {
       console.error("Polygon deposit address error", error);
       res.status(500).json({ error: "Unable to allocate a Polygon deposit address" });
+    }
+  });
+
+  app.post("/api/admin/polygon/sweep", async (req, res) => {
+    const authorization = req.header("authorization");
+    if (!authClient || !isValidSupabaseBearerToken(authorization)) {
+      res.status(401).json({ error: "Authentication required" });
+      return;
+    }
+    try {
+      const token = authorization!.replace(/^Bearer\s+/i, "");
+      const { data, error } = await authClient.auth.getUser(token);
+      if (error || !data.user) {
+        res.status(401).json({ error: "Invalid or expired session" });
+        return;
+      }
+      const { data: admin, error: adminError } = await authClient
+        .from("admin_users").select("user_id").eq("user_id", data.user.id).eq("is_active", true).maybeSingle();
+      if (adminError || !admin) {
+        res.status(403).json({ error: "Admin permission required" });
+        return;
+      }
+      const sourceUserId = typeof req.body?.source_user_id === "string" ? req.body.source_user_id : "";
+      const amount = typeof req.body?.amount === "string" ? req.body.amount : undefined;
+      const dryRun = req.body?.dry_run === true;
+      if (!/^[0-9a-f-]{36}$/i.test(sourceUserId)) {
+        res.status(400).json({ error: "A valid source_user_id is required" });
+        return;
+      }
+      const result = await sweepPolygonUsdt({ adminUserId: data.user.id, sourceUserId, amount, dryRun });
+      res.status(dryRun ? 200 : 201).json(result);
+    } catch (error) {
+      console.error("Polygon sweep error", error);
+      res.status(400).json({ error: error instanceof Error ? error.message : "Sweep failed" });
     }
   });
 

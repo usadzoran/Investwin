@@ -660,6 +660,7 @@ h1, h2, p { margin: 0; }
 .admin-tag.failed { color: #9a6862; background: rgba(215,185,173,.3); }
 .admin-empty { display: grid; place-items: center; min-height: 90px; color: #97a2af; font-size: 11px; }
 .admin-transfer-panel { margin-top: 18px; padding: 25px 23px; }
+.admin-sweep-panel { border-color: rgba(16,185,129,.24); }
 .admin-wallet-connect { margin-top: 22px; background: var(--sand); border-color: transparent; }
 .admin-transfer-form { display: grid; gap: 13px; max-width: 720px; margin-top: 22px; }
 .admin-wallet-connected { display: inline-flex; align-items: center; gap: 7px; width: fit-content; padding: 6px 9px; border-radius: 20px; color: #318778; background: rgba(159,230,213,.22); font-family: 'Space Grotesk', sans-serif; font-size: 10px; }

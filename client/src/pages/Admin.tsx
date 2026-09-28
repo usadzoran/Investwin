@@ -108,6 +108,9 @@ export default function AdminPage() {
   const [recipientUserId, setRecipientUserId] = useState("");
   const [amount, setAmount] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [sweepUserId, setSweepUserId] = useState("");
+  const [sweepAmount, setSweepAmount] = useState("");
+  const [isSweeping, setIsSweeping] = useState(false);
 
   // Copied SQL state
   const [copiedSql, setCopiedSql] = useState(false);
@@ -323,6 +326,39 @@ export default function AdminPage() {
       toast.error(error instanceof Error ? error.message : "تم رفض المعاملة.");
     } finally {
       setIsSending(false);
+    }
+  };
+
+  const runManualSweep = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!sweepUserId) {
+      toast.error("اختر مستخدمًا يملك عنوان إيداع Polygon.");
+      return;
+    }
+    setIsSweeping(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error("انتهت جلسة الأدمن.");
+      const request = (dryRun: boolean) => fetch("/api/admin/polygon/sweep", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ source_user_id: sweepUserId, amount: sweepAmount.trim() || undefined, dry_run: dryRun }),
+      });
+      const dryRunResponse = await request(true);
+      const preview = await dryRunResponse.json() as { error?: string; amount?: string; source_address?: string; treasury_address?: string; estimated_gas_fee?: string };
+      if (!dryRunResponse.ok) throw new Error(preview.error ?? "تعذر فحص عملية النقل.");
+      const confirmed = window.confirm(`سيتم نقل ${preview.amount} USDT من ${shorten(preview.source_address ?? "")} إلى خزينة ${shorten(preview.treasury_address ?? "")}. رسوم الغاز التقديرية: ${preview.estimated_gas_fee} POL/MATIC. هل تريد التنفيذ؟`);
+      if (!confirmed) return;
+      const response = await request(false);
+      const result = await response.json() as { error?: string; tx_hash?: string; amount?: string };
+      if (!response.ok) throw new Error(result.error ?? "تعذر تنفيذ النقل.");
+      toast.success("تم نقل USDT إلى الخزينة وتسجيل العملية", { description: `${result.amount} USDT — ${shorten(result.tx_hash ?? "")}` });
+      setSweepAmount("");
+      await loadAdminData(adminEmail);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "تعذر تنفيذ عملية النقل.");
+    } finally {
+      setIsSweeping(false);
     }
   };
 
@@ -1067,6 +1103,36 @@ create table if not exists public.wallet_transfers (
                 </div>
               </form>
             )}
+          </section>
+        )}
+
+        {activeTab === "transfers" && (
+          <section className="admin-transfer-panel admin-sweep-panel">
+            <div className="admin-panel-title">
+              <div>
+                <span>تحويل محافظ الإيداع</span>
+                <h2>نقل USDT إلى الخزينة الرئيسية</h2>
+                <p>الوضع اليدوي الآمن: فحص الرصيد والغاز أولًا، ثم تأكيد صريح قبل توقيع الخادم للمعاملة.</p>
+              </div>
+              <ShieldCheck size={24} />
+            </div>
+            <form className="admin-transfer-form" onSubmit={runManualSweep}>
+              <label>
+                محفظة إيداع المستخدم
+                <select value={sweepUserId} onChange={(event) => setSweepUserId(event.target.value)} required>
+                  <option value="">اختر مستخدمًا</option>
+                  {users.map((user) => <option value={user.user_id} key={user.user_id}>{user.email ?? user.user_id}</option>)}
+                </select>
+              </label>
+              <label>
+                المبلغ (اتركه فارغًا لتحويل كامل الرصيد)
+                <input value={sweepAmount} onChange={(event) => setSweepAmount(event.target.value)} placeholder="كل الرصيد" inputMode="decimal" dir="ltr" />
+              </label>
+              <button className="admin-send-button" disabled={isSweeping}>
+                {isSweeping ? "جارٍ فحص الرصيد…" : "فحص ثم نقل إلى الخزينة"} <ArrowUpLeft size={16} />
+              </button>
+              <div className="admin-warning"><ShieldAlert size={16} /><span>لا تُفعّل العملية إلا بعد إعداد Secret Manager، عنوان الخزينة، عقد USDT، ورصيد POL/MATIC للغاز. الأتمتة غير مفعّلة افتراضيًا.</span></div>
+            </form>
           </section>
         )}
 
