@@ -32,8 +32,10 @@ import {
 import { supabase } from "@/lib/supabase";
 import {
   connectWallet,
+  getWalletSnapshot,
   sendUsdt,
   SUPPORTED_CHAINS,
+  switchToChain,
   type ChainKey,
   type Eip1193Provider,
 } from "@/lib/wallet";
@@ -45,6 +47,7 @@ import {
   fetchAllAdminTransfers,
   fetchAllAdminUsers,
   getPlanEarningsInfo,
+  recordAdminTransfer,
   syncUserWallet,
   updateUserDeposit,
   type AdminTransferRecord,
@@ -99,7 +102,8 @@ export default function AdminPage() {
   // Wallet Sending States
   const [provider, setProvider] = useState<Eip1193Provider | null>(null);
   const [walletAddress, setWalletAddress] = useState("");
-  const [chainKey, setChainKey] = useState<ChainKey>("ethereum");
+  const [chainKey, setChainKey] = useState<ChainKey>("bnb");
+  const [treasurySnapshot, setTreasurySnapshot] = useState<Awaited<ReturnType<typeof getWalletSnapshot>> | null>(null);
   const [recipient, setRecipient] = useState("");
   const [recipientUserId, setRecipientUserId] = useState("");
   const [amount, setAmount] = useState("");
@@ -231,9 +235,12 @@ export default function AdminPage() {
   const connectAdminWallet = async () => {
     try {
       const nextProvider = await connectWallet("metamask");
+      await switchToChain(nextProvider, "bnb");
       const accounts = (await nextProvider.request({ method: "eth_accounts" })) as string[];
       setProvider(nextProvider);
+      setChainKey("bnb");
       setWalletAddress(accounts[0] ?? "");
+      setTreasurySnapshot(await getWalletSnapshot(nextProvider, "bnb"));
       if (accounts[0]) {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error("انتهت جلسة Admin.");
@@ -295,6 +302,18 @@ export default function AdminPage() {
     setIsSending(true);
     try {
       const receipt = await sendUsdt(provider, chainKey, recipient, amount);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || !receipt?.hash) throw new Error("انتهت جلسة الأدمن أو لم تُنشأ المعاملة.");
+      const transfer = await recordAdminTransfer({
+        adminUserId: user.id,
+        recipientUserId: recipientUserId || undefined,
+        recipientAddress: recipient,
+        chain: chainKey,
+        amount: Number(amount),
+        txHash: receipt.hash,
+        status: "confirmed",
+      });
+      setTransfers((previous) => [transfer, ...previous]);
       toast.success("تم توقيع وتحويل USDT بنجاح من محفظة الأدمن!", {
         description: `الهاش: ${shorten(receipt?.hash ?? "")}`,
       });
@@ -568,6 +587,19 @@ create table if not exists public.wallet_transfers (
             </span>
           </div>
         </div>
+
+        <section className="admin-treasury-card">
+          <div>
+            <span className="admin-kicker"><WalletCards size={14} /> خزينة الموقع</span>
+            <h2>{walletAddress ? shorten(walletAddress) : "لم يتم ربط محفظة الأدمن"}</h2>
+            <p>التحويلات الفعلية تتم فقط من محفظة الأدمن بعد توقيع MetaMask وعلى شبكة BNB Chain.</p>
+          </div>
+          <div className="admin-treasury-balance">
+            <small>رصيد USDT على BNB</small>
+            <strong>{treasurySnapshot?.wrongNetwork ? "شبكة خاطئة" : treasurySnapshot?.usdtBalance ?? "—"} <span>USDT</span></strong>
+            <small>الرصيد الأصلي: {treasurySnapshot?.nativeBalance ?? "—"} BNB</small>
+          </div>
+        </section>
 
         {/* 4 Key Statistics Cards */}
         <section className="admin-stats">

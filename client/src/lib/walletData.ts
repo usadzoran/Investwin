@@ -193,6 +193,29 @@ export async function updateUserDeposit(id: string, status: DepositStatus) {
   if (error) throw new Error(`تعذر تحديث الإيداع في قاعدة البيانات: ${error.message}`);
 }
 
+export async function recordAdminTransfer(input: {
+  adminUserId: string;
+  recipientUserId?: string;
+  recipientAddress: string;
+  chain: ChainKey;
+  amount: number;
+  txHash: string;
+  status?: "draft" | "submitted" | "confirmed" | "failed";
+}) {
+  const { data, error } = await supabase.from("admin_transfers").insert({
+    admin_user_id: input.adminUserId,
+    recipient_user_id: input.recipientUserId || null,
+    recipient_address: input.recipientAddress.toLowerCase(),
+    chain_key: input.chain,
+    token_symbol: "USDT",
+    amount: input.amount,
+    tx_hash: input.txHash,
+    status: input.status ?? "confirmed",
+  }).select("id,recipient_address,chain_key,amount,status,tx_hash,created_at").single();
+  if (error) throw new Error(`تعذر تسجيل تحويل الأدمن: ${error.message}`);
+  return data as AdminTransferRecord;
+}
+
 export async function recordUserTransfer(input: {
   userId: string;
   fromAddress: string;
