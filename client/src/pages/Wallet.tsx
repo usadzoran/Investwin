@@ -107,6 +107,7 @@ export default function WalletPage({ embedded = false }: { embedded?: boolean; p
   const [isDepositing, setIsDepositing] = useState(false);
   const [depositAddress, setDepositAddress] = useState("");
   const [isLoadingDepositAddress, setIsLoadingDepositAddress] = useState(false);
+  const [depositAddressError, setDepositAddressError] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | undefined>();
   const [notifications, setNotifications] = useState<UserNotification[]>([]);
@@ -132,10 +133,15 @@ export default function WalletPage({ embedded = false }: { embedded?: boolean; p
     if (!userId) return undefined;
     let cancelled = false;
     setIsLoadingDepositAddress(true);
+    setDepositAddressError("");
     void loadOrCreatePolygonDepositAddress().then((value) => {
       if (!cancelled) setDepositAddress(value);
     }).catch((error) => {
-      if (!cancelled) toast.error(error instanceof Error ? error.message : "تعذر تحميل عنوان الإيداع.");
+      if (!cancelled) {
+        const message = error instanceof Error ? error.message : "تعذر تحميل عنوان الإيداع.";
+        setDepositAddressError(message);
+        toast.error(message);
+      }
     }).finally(() => {
       if (!cancelled) setIsLoadingDepositAddress(false);
     });
@@ -729,6 +735,7 @@ export default function WalletPage({ embedded = false }: { embedded?: boolean; p
                     <code dir="ltr">{isLoadingDepositAddress ? "جارٍ تحميل عنوان الإيداع…" : depositAddress || "عنوان الإيداع غير متاح"}</code>
                     <button disabled={!depositAddress} onClick={() => copyText(depositAddress, "عنوان الإيداع")}><Copy size={16} /> نسخ</button>
                   </div>
+                  {depositAddressError && <div className="network-warning"><TriangleAlert size={15} /><span>{depositAddressError}. يجب تسجيل الدخول أولاً، ثم إعداد أسرار Polygon في Supabase إذا لم يكن العنوان موجوداً.</span></div>}
                   <div className="network-warning">
                     <ShieldCheck size={15} />
                     <span>العنوان مخصص لحسابك على Polygon. لا ترسل BNB أو USDT من شبكة مختلفة؛ العملات المرسلة على شبكة خاطئة قد تضيع.</span>
