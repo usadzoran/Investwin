@@ -535,7 +535,7 @@ export default function WalletPage({ embedded = false }: { embedded?: boolean; p
       </header>}
       <main className="wallet-shell">
         <div className="wallet-heading-row">
-          <div><div className="wallet-eyebrow"><ShieldCheck size={14} /> محفظتك غير الوصائية</div><h1>أرسل واستقبل <em>USDT.</em></h1><p>أموالك تبقى تحت سيطرتك. كل معاملة تحتاج موافقتك داخل المحفظة.</p></div>
+          <div><div className="wallet-eyebrow"><ShieldCheck size={14} /> محفظة USDT الداخلية</div><h1>أرسل واستقبل <em>USDT.</em></h1><p>استخدم عنوان محفظتك الداخلية للإيداع والسحب من Binance أو Bybit أو أي محفظة خارجية تدعم USDT.</p></div>
           {provider && <button className="wallet-disconnect" onClick={disconnect}><LogOut size={15} /> فصل {connectionLabel}</button>}
         </div>
 
@@ -548,13 +548,17 @@ export default function WalletPage({ embedded = false }: { embedded?: boolean; p
         </section>
 
         {!provider ? (
-          <section className="wallet-connect-card">
+          <section className="wallet-connect-card internal-wallet-card">
             <div className="wallet-card-icon"><WalletCards size={25} /></div>
-            <div><h2>اربط محفظتك للبدء</h2><p>لا نطلب أبداً العبارة السرية أو المفتاح الخاص.</p></div>
-            <div className="wallet-connect-actions"><button className="wallet-connect-button wallet-connect-metamask" disabled={isConnecting} onClick={() => void connect("metamask")}>🦊 <span>{isConnecting ? "جارٍ الربط…" : "MetaMask"}</span></button><button className="wallet-connect-button" disabled={isConnecting} onClick={() => void connect("walletconnect")}>⌁ <span>{isConnecting ? "جارٍ فتح قائمة المحافظ…" : "محافظ أخرى"}</span></button></div>
-            <p className="wallet-connect-hint">يفتح الخيار الثاني قائمة Trust Wallet وCoinbase وBinance وOKX وغيرها عبر WalletConnect.</p>
-            <div className="wallet-balance-preview"><div><small>الإيداعات المكتملة المسجلة</small><strong>{completedDepositTotal.toLocaleString("en-US", { maximumFractionDigits: 4 })} <span>USDT</span></strong></div><span>الرصيد الحقيقي على الشبكة يظهر فور ربط محفظتك</span></div>
-            <div className="wallet-safety-note"><ShieldCheck size={15} /> الاتصال غير وصائي — لا نملك صلاحية نقل أموالك.</div>
+            <div><h2>محفظتك الداخلية على Polygon</h2><p>لا تحتاج إلى ربط MetaMask أو Trust Wallet. أرسل USDT إلى العنوان أدناه من منصة أو محفظة خارجية.</p></div>
+            <div className="receive-address">
+              <code dir="ltr">{isLoadingDepositAddress ? "جارٍ تحميل عنوان الإيداع…" : depositAddress || "عنوان الإيداع غير متاح"}</code>
+              <button disabled={!depositAddress} onClick={() => copyText(depositAddress, "عنوان محفظتك الداخلية")}><Copy size={16} /> نسخ العنوان</button>
+            </div>
+            <div className="wallet-balance-preview"><div><small>الإيداعات المكتملة</small><strong>{completedDepositTotal.toLocaleString("en-US", { maximumFractionDigits: 4 })} <span>USDT</span></strong></div><span>الشبكة المعتمدة: Polygon فقط</span></div>
+            <div className="wallet-safety-note"><ShieldCheck size={15} /> استخدم هذا العنوان فقط مع شبكة Polygon. لا ترسل TRC20 أو ERC20 أو BNB Chain إلى هذا العنوان.</div>
+            {depositAddressError && <div className="network-warning"><TriangleAlert size={15} /><span>{depositAddressError}</span></div>}
+            <div className="external-deposit-card"><strong>طريقة الاستخدام</strong><p>للإيداع: انسخ العنوان والصقه في Binance أو Bybit أو Trust Wallet عند سحب USDT، واختر Polygon. للسحب لاحقًا: أدخل عنوان المستلم الخارجي من قسم الإرسال.</p></div>
           </section>
         ) : (
           <>
