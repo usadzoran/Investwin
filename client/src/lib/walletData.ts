@@ -17,6 +17,12 @@ const WITHDRAWALS_STORAGE_KEY = `${STORAGE_PREFIX}withdrawals`;
 const WITHDRAWAL_LOCK_PREFIX = `${STORAGE_PREFIX}withdrawal_lock_`;
 export const DAILY_WITHDRAWAL_LIMIT_USDT = 1000;
 
+export type CentralWithdrawalSummary = {
+  withdrawn: number;
+  remaining: number;
+  limit: number;
+};
+
 export type WithdrawalKind = "profit" | "principal";
 export type WithdrawalRecord = {
   id: string;
@@ -27,6 +33,58 @@ export type WithdrawalRecord = {
   kind: WithdrawalKind;
   createdAt: string;
 };
+
+function centralSecurityError(error: { message?: string } | null) {
+  const message = error?.message ?? "";
+  if (message.includes("withdrawal_daily_limit_exceeded")) return "تم تجاوز الحد اليومي المركزي للسحب لهذه المحفظة.";
+  if (message.includes("withdrawal_duplicate")) return "تم تنفيذ طلب السحب هذا مسبقًا.";
+  if (message.includes("withdrawal_wallet_mismatch")) return "المحفظة المتصلة لا تطابق المحفظة المسجلة مركزيًا.";
+  if (message.includes("withdrawal_auth_required")) return "انتهت جلسة الحساب. سجّل الدخول ثم حاول مرة أخرى.";
+  if (message.includes("withdrawal_invalid_input")) return "بيانات السحب غير صالحة.";
+  if (message.includes("function") && message.includes("does not exist")) return "حماية السحب المركزية غير مفعلة بعد. شغّل ملف supabase/withdrawal_security.sql أولًا.";
+  return "تعذر التحقق من حماية السحب المركزية. لم يتم تنفيذ السحب.";
+}
+
+export async function getCentralWithdrawalSummary(walletAddress: string): Promise<CentralWithdrawalSummary> {
+  const { data, error } = await supabase.rpc("get_withdrawal_summary", {
+    p_wallet_address: walletAddress,
+    p_daily_limit: DAILY_WITHDRAWAL_LIMIT_USDT,
+  });
+  if (error) throw new Error(centralSecurityError(error));
+  const row = Array.isArray(data) ? data[0] : data;
+  return {
+    withdrawn: Number(row?.withdrawn_today ?? 0),
+    remaining: Number(row?.remaining_today ?? DAILY_WITHDRAWAL_LIMIT_USDT),
+    limit: Number(row?.daily_limit ?? DAILY_WITHDRAWAL_LIMIT_USDT),
+  };
+}
+
+export async function reserveCentralWithdrawal(input: {
+  userId: string;
+  walletAddress: string;
+  planId: string;
+  kind: WithdrawalKind;
+  amount: number;
+  cycleKey: string;
+}): Promise<CentralWithdrawalSummary> {
+  const { data, error } = await supabase.rpc("reserve_withdrawal", {
+    p_user_id: input.userId,
+    p_wallet_address: input.walletAddress,
+    p_plan_id: input.planId,
+    p_kind: input.kind,
+    p_amount: input.amount,
+    p_cycle_key: input.cycleKey,
+    p_daily_limit: DAILY_WITHDRAWAL_LIMIT_USDT,
+  });
+  if (error) throw new Error(centralSecurityError(error));
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row?.withdrawal_id) throw new Error("تعذر إنشاء حجز السحب المركزي. لم يتم تنفيذ السحب.");
+  return {
+    withdrawn: Number(row.withdrawn_today),
+    remaining: Number(row.remaining_today),
+    limit: DAILY_WITHDRAWAL_LIMIT_USDT,
+  };
+}
 
 function safeJsonParse<T>(key: string, defaultValue: T): T {
   try {
@@ -258,6 +316,12 @@ function recordWithdrawal(input: Omit<WithdrawalRecord, "id" | "createdAt">) {
   safeJsonSet(WITHDRAWALS_STORAGE_KEY, records);
 }
 
+function validateWithdrawalOwnership(userId: string, walletAddress: string, plan: InvestmentPlan) {
+  if (plan.userId !== userId || !walletAddress.trim() || normalizeWalletAddress(plan.walletAddress) !== normalizeWalletAddress(walletAddress)) {
+    throw new Error("يجب أن تتطابق المحفظة المتصلة مع محفظة خطة الاستثمار.");
+  }
+}
+
 export function createInvestmentPlan(input: {
   userId: string;
   walletAddress: string;
@@ -321,7 +385,7 @@ export function getPlanEarningsInfo(plan: InvestmentPlan) {
   };
 }
 
-export function claimInvestmentProfits(userId: string, planId: string, walletAddress: string): { claimed: number; plan: InvestmentPlan } {
+export async function claimInvestmentProfits(userId: string, planId: string, walletAddress: string): Promise<{ claimed: number; plan: InvestmentPlan; security: CentralWithdrawalSummary }> {
   const plans = loadUserInvestments(userId);
   const index = plans.findIndex((p) => p.id === planId);
   if (index === -1) throw new Error("الخطة غير موجودة.");
@@ -333,44 +397,41 @@ export function claimInvestmentProfits(userId: string, planId: string, walletAdd
     throw new Error("لم تنتهِ دورة الـ 24 ساعة الحالية بعد للحصول على أرباح جديدة.");
   }
 
-  const authorization = authorizeWithdrawal({ userId, walletAddress, plan, amount: claimableProfit });
-  try {
-    const updatedPlan: InvestmentPlan = {
-      ...plan,
-      claimedProfits: +(plan.claimedProfits + claimableProfit).toFixed(2),
-      lastClaimAt: new Date().toISOString(),
-      status: isCompleted ? "completed" : "active",
-    };
-    plans[index] = updatedPlan;
-    saveUserInvestments(userId, plans);
-    recordWithdrawal({ userId, walletAddress, planId, amount: claimableProfit, kind: "profit" });
-    return { claimed: claimableProfit, plan: updatedPlan };
-  } finally {
-    authorization.release();
-  }
+  validateWithdrawalOwnership(userId, walletAddress, plan);
+  const security = await reserveCentralWithdrawal({
+    userId, walletAddress, planId, kind: "profit", amount: claimableProfit,
+    cycleKey: `profit:${plan.lastClaimAt}`,
+  });
+  const updatedPlan: InvestmentPlan = {
+    ...plan,
+    claimedProfits: +(plan.claimedProfits + claimableProfit).toFixed(2),
+    lastClaimAt: new Date().toISOString(),
+    status: isCompleted ? "completed" : "active",
+  };
+  plans[index] = updatedPlan;
+  saveUserInvestments(userId, plans);
+  recordWithdrawal({ userId, walletAddress, planId, amount: claimableProfit, kind: "profit" });
+  return { claimed: claimableProfit, plan: updatedPlan, security };
 }
 
-export function withdrawPlanPrincipal(userId: string, planId: string, walletAddress: string): InvestmentPlan {
+export async function withdrawPlanPrincipal(userId: string, planId: string, walletAddress: string): Promise<InvestmentPlan> {
   const plans = loadUserInvestments(userId);
   const index = plans.findIndex((p) => p.id === planId);
   if (index === -1) throw new Error("الخطة غير موجودة.");
 
   const plan = plans[index];
   if (plan.status === "withdrawn") throw new Error("تم سحب رأس مال هذه الخطة مسبقًا.");
-  const authorization = authorizeWithdrawal({ userId, walletAddress, plan, amount: plan.amount });
+  validateWithdrawalOwnership(userId, walletAddress, plan);
+  await reserveCentralWithdrawal({ userId, walletAddress, planId, kind: "principal", amount: plan.amount, cycleKey: "principal" });
   const updatedPlan: InvestmentPlan = {
     ...plan,
     status: "withdrawn",
   };
 
-  try {
-    plans[index] = updatedPlan;
-    saveUserInvestments(userId, plans);
-    recordWithdrawal({ userId, walletAddress, planId, amount: plan.amount, kind: "principal" });
-    return updatedPlan;
-  } finally {
-    authorization.release();
-  }
+  plans[index] = updatedPlan;
+  saveUserInvestments(userId, plans);
+  recordWithdrawal({ userId, walletAddress, planId, amount: plan.amount, kind: "principal" });
+  return updatedPlan;
 }
 
 // =========================================================================

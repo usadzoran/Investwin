@@ -51,8 +51,9 @@ import {
   claimInvestmentProfits,
   withdrawPlanPrincipal,
   saveUserInvestments,
-  getWalletDailyWithdrawalSummary,
   DAILY_WITHDRAWAL_LIMIT_USDT,
+  getCentralWithdrawalSummary,
+  type CentralWithdrawalSummary,
 } from "@/lib/walletData";
 
 const chainKeys = Object.keys(SUPPORTED_CHAINS) as ChainKey[];
@@ -102,6 +103,8 @@ export default function WalletPage({ embedded = false }: { embedded?: boolean; p
   const [durationDays, setDurationDays] = useState<number>(7);
   const [investments, setInvestments] = useState<InvestmentPlan[]>([]);
   const [isStartingPlan, setIsStartingPlan] = useState(false);
+  const [isWithdrawing, setIsWithdrawing] = useState(false);
+  const [centralWithdrawal, setCentralWithdrawal] = useState<CentralWithdrawalSummary | null>(null);
   const [, setTick] = useState<number>(0);
 
   const chain = SUPPORTED_CHAINS[activeChain];
@@ -110,9 +113,7 @@ export default function WalletPage({ embedded = false }: { embedded?: boolean; p
   const completedDepositTotal = deposits
     .filter((deposit) => deposit.status === "completed" && typeof deposit.amount === "number")
     .reduce((total, deposit) => total + (deposit.amount ?? 0), 0);
-  const dailyWithdrawal = address
-    ? getWalletDailyWithdrawalSummary(address)
-    : { limit: DAILY_WITHDRAWAL_LIMIT_USDT, withdrawn: 0, remaining: DAILY_WITHDRAWAL_LIMIT_USDT };
+  const dailyWithdrawal = centralWithdrawal ?? { limit: DAILY_WITHDRAWAL_LIMIT_USDT, withdrawn: 0, remaining: DAILY_WITHDRAWAL_LIMIT_USDT };
 
   // Real-time calculation based on user input
   const numInvest = Math.max(1, Number(investAmount) || 0);
@@ -148,6 +149,18 @@ export default function WalletPage({ embedded = false }: { embedded?: boolean; p
     return () => { cancelled = true; };
   }, [navigate]);
 
+  useEffect(() => {
+    let cancelled = false;
+    setCentralWithdrawal(null);
+    if (!address) return undefined;
+    void getCentralWithdrawalSummary(address).then((summary) => {
+      if (!cancelled) setCentralWithdrawal(summary);
+    }).catch((error) => {
+      if (!cancelled) toast.error(error instanceof Error ? error.message : "تعذر تحميل حد السحب المركزي.");
+    });
+    return () => { cancelled = true; };
+  }, [address]);
+
   const handleStartInvestment = (event: React.FormEvent) => {
     event.preventDefault();
     if (!userId) {
@@ -181,27 +194,35 @@ export default function WalletPage({ embedded = false }: { embedded?: boolean; p
     }
   };
 
-  const handleClaimProfit = (planId: string) => {
+  const handleClaimProfit = async (planId: string) => {
     if (!userId) return;
+    setIsWithdrawing(true);
     try {
-      const result = claimInvestmentProfits(userId, planId, address);
+      const result = await claimInvestmentProfits(userId, planId, address);
       setInvestments((prev) => prev.map((p) => (p.id === planId ? result.plan : p)));
+      setCentralWithdrawal(result.security);
       toast.success(`تم سحب ${result.claimed}$ أرباح بنجاح إلى رصيدك!`, {
-        description: "تم تحويل أرباح الـ 24 ساعة إلى محفظتك مباشرة.",
+        description: `تم تسجيل العملية مركزيًا. المتبقي اليوم: ${result.security.remaining.toFixed(2)} USDT.`,
       });
     } catch (e: any) {
       toast.error(e?.message || "تعذر سحب الأرباح حالياً.");
+    } finally {
+      setIsWithdrawing(false);
     }
   };
 
-  const handleWithdrawPrincipal = (planId: string) => {
+  const handleWithdrawPrincipal = async (planId: string) => {
     if (!userId) return;
+    setIsWithdrawing(true);
     try {
-      const updated = withdrawPlanPrincipal(userId, planId, address);
+      const updated = await withdrawPlanPrincipal(userId, planId, address);
       setInvestments((prev) => prev.map((p) => (p.id === planId ? updated : p)));
+      setCentralWithdrawal(await getCentralWithdrawalSummary(address));
       toast.success("تم استرداد رأس المال بالكامل بنجاح!");
     } catch (e: any) {
       toast.error(e?.message || "تعذر استرداد رأس المال.");
+    } finally {
+      setIsWithdrawing(false);
     }
   };
 
@@ -701,7 +722,7 @@ export default function WalletPage({ embedded = false }: { embedded?: boolean; p
                           <button
                             type="button"
                             className="claim-btn"
-                            disabled={info.claimableProfit <= 0 || info.claimableProfit > dailyWithdrawal.remaining}
+                            disabled={isWithdrawing || !centralWithdrawal || info.claimableProfit <= 0 || info.claimableProfit > dailyWithdrawal.remaining}
                             onClick={() => handleClaimProfit(plan.id)}
                           >
                             <Coins size={14} />
@@ -729,7 +750,7 @@ export default function WalletPage({ embedded = false }: { embedded?: boolean; p
                               <button
                                 type="button"
                                 className="button button-small button-outline"
-                                disabled={plan.amount > dailyWithdrawal.remaining}
+                                disabled={isWithdrawing || !centralWithdrawal || plan.amount > dailyWithdrawal.remaining}
                                 onClick={() => handleWithdrawPrincipal(plan.id)}
                               >
                                 استرداد رأس المال (${plan.amount})
