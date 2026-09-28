@@ -125,6 +125,28 @@ export async function getCurrentUser() {
   return data.user;
 }
 
+export async function loadOrCreatePolygonDepositAddress(): Promise<string> {
+  const apiBase = ((import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "").trim().replace(/\/$/, "");
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error("انتهت جلسة المستخدم.");
+
+  // The server owns the seed and creates the address when it is missing.
+  const response = await fetch(`${apiBase}/api/polygon/deposit-address`, {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  });
+  const contentType = response.headers.get("content-type") ?? "";
+  if (response.ok && contentType.includes("application/json")) {
+    const result = await response.json() as { wallet_address?: string };
+    if (result.wallet_address) return result.wallet_address;
+  }
+
+  // Allows already-generated addresses to remain visible even while API_BASE is being configured.
+  const { data, error } = await supabase.from("user_profiles").select("polygon_deposit_address").eq("user_id", session.user.id).maybeSingle();
+  if (error) throw new Error(`تعذر تحميل عنوان إيداع Polygon: ${error.message}`);
+  if (data?.polygon_deposit_address) return data.polygon_deposit_address;
+  throw new Error("لم يتم تشغيل خادم عناوين الإيداع بعد. أضف VITE_API_BASE_URL إلى بناء الموقع.");
+}
+
 export async function loadUserNotifications(userId: string): Promise<UserNotification[]> {
   const { data, error } = await supabase
     .from("user_notifications")

@@ -87,6 +87,8 @@ POLYGON_NETWORK=amoy
 
 ## الاستخدام في الواجهة
 
+في GitHub Actions أضف Repository Variable عامة باسم `VITE_API_BASE_URL` تحتوي على عنوان خادم Node.js المنشور، مثل `https://api.example.com`، ثم أعد النشر. لا يمكن لـ GitHub Pages تشغيل endpoint الخادم بنفسه.
+
 بعد تسجيل الدخول، أرسل access token إلى الخادم:
 
 ```ts

@@ -56,6 +56,7 @@ import {
   saveUserInvestments,
   DAILY_WITHDRAWAL_LIMIT_USDT,
   getCentralWithdrawalSummary,
+  loadOrCreatePolygonDepositAddress,
   loadUserNotifications,
   markNotificationRead,
   subscribeToUserNotifications,
@@ -104,6 +105,8 @@ export default function WalletPage({ embedded = false }: { embedded?: boolean; p
   const [deposits, setDeposits] = useState<DepositRecord[]>([]);
   const [isCheckingDeposit, setIsCheckingDeposit] = useState(false);
   const [isDepositing, setIsDepositing] = useState(false);
+  const [depositAddress, setDepositAddress] = useState("");
+  const [isLoadingDepositAddress, setIsLoadingDepositAddress] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | undefined>();
   const [notifications, setNotifications] = useState<UserNotification[]>([]);
@@ -124,6 +127,20 @@ export default function WalletPage({ embedded = false }: { embedded?: boolean; p
     .filter((deposit) => deposit.status === "completed" && typeof deposit.amount === "number")
     .reduce((total, deposit) => total + (deposit.amount ?? 0), 0);
   const dailyWithdrawal = centralWithdrawal ?? { limit: DAILY_WITHDRAWAL_LIMIT_USDT, withdrawn: 0, remaining: DAILY_WITHDRAWAL_LIMIT_USDT };
+
+  useEffect(() => {
+    if (!userId) return undefined;
+    let cancelled = false;
+    setIsLoadingDepositAddress(true);
+    void loadOrCreatePolygonDepositAddress().then((value) => {
+      if (!cancelled) setDepositAddress(value);
+    }).catch((error) => {
+      if (!cancelled) toast.error(error instanceof Error ? error.message : "تعذر تحميل عنوان الإيداع.");
+    }).finally(() => {
+      if (!cancelled) setIsLoadingDepositAddress(false);
+    });
+    return () => { cancelled = true; };
+  }, [userId]);
 
   // Real-time calculation based on user input
   const numInvest = Math.max(1, Number(investAmount) || 0);
@@ -690,7 +707,7 @@ export default function WalletPage({ embedded = false }: { embedded?: boolean; p
                 <div className="receive-panel">
                   <div>
                     <h2>استقبال USDT</h2>
-                    <p>أرسل USDT إلى هذا العنوان باستخدام شبكة <strong>{chain.name}</strong> فقط.</p>
+                    <p>هذا عنوان إيداعك الفريد. أرسل USDT باستخدام شبكة <strong>Polygon</strong> فقط.</p>
                   </div>
                   <form className="send-panel real-deposit-panel" onSubmit={submitRealDeposit}>
                     <div>
@@ -709,12 +726,12 @@ export default function WalletPage({ embedded = false }: { embedded?: boolean; p
                     {isValidEvmAddress(BNB_TREASURY_ADDRESS) && <div className="network-warning"><ShieldCheck size={15} /><span>الخزينة: <code dir="ltr">{shortenAddress(BNB_TREASURY_ADDRESS)}</code>. تحقق من العنوان قبل توقيع المعاملة.</span></div>}
                   </form>
                   <div className="receive-address">
-                    <code>{address}</code>
-                    <button onClick={() => copyText(address, "عنوان الاستقبال")}><Copy size={16} /> نسخ</button>
+                    <code dir="ltr">{isLoadingDepositAddress ? "جارٍ تحميل عنوان الإيداع…" : depositAddress || "عنوان الإيداع غير متاح"}</code>
+                    <button disabled={!depositAddress} onClick={() => copyText(depositAddress, "عنوان الإيداع")}><Copy size={16} /> نسخ</button>
                   </div>
                   <div className="network-warning">
                     <ShieldCheck size={15} />
-                    <span>تأكد من اختيار الشبكة نفسها في المنصة المرسلة. العملات المرسلة على شبكة مختلفة قد تضيع.</span>
+                    <span>العنوان مخصص لحسابك على Polygon. لا ترسل BNB أو USDT من شبكة مختلفة؛ العملات المرسلة على شبكة خاطئة قد تضيع.</span>
                   </div>
                   <div className="binance-deposit-card">
                     <div className="binance-deposit-heading">
@@ -726,7 +743,7 @@ export default function WalletPage({ embedded = false }: { embedded?: boolean; p
                     </div>
                     <ol>
                       <li>في Binance اختر <b>Withdraw USDT</b>.</li>
-                      <li>ألصق العنوان أعلاه واختر شبكة <b>{chain.name}</b>.</li>
+                      <li>ألصق عنوان الإيداع أعلاه واختر شبكة <b>Polygon (POL)</b>.</li>
                       <li>راجع الشبكة والعنوان ثم أكمل السحب من Binance.</li>
                     </ol>
                     <a className="binance-open-link" href="https://www.binance.com/en/my/wallet/account/main" target="_blank" rel="noreferrer">
