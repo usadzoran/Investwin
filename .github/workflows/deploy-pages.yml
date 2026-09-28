@@ -41,8 +41,6 @@ jobs:
           VITE_WALLETCONNECT_PROJECT_ID: ${{ secrets.VITE_WALLETCONNECT_PROJECT_ID }}
           # Public destination address only; never store a treasury private key in GitHub.
           VITE_BNB_TREASURY_ADDRESS: ${{ vars.VITE_BNB_TREASURY_ADDRESS }}
-          # Public URL of the Node.js backend that owns the Polygon deposit seed.
-          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
       - name: Configure Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact

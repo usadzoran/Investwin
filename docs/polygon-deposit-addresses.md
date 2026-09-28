@@ -87,7 +87,19 @@ POLYGON_NETWORK=amoy
 
 ## الاستخدام في الواجهة
 
-في GitHub Actions أضف Repository Variable عامة باسم `VITE_API_BASE_URL` تحتوي على عنوان خادم Node.js المنشور، مثل `https://api.example.com`، ثم أعد النشر. لا يمكن لـ GitHub Pages تشغيل endpoint الخادم بنفسه.
+يستخدم الموقع الآن Supabase Edge Function باسم `polygon-backend` مباشرة، لذلك لا يحتاج GitHub Pages إلى `VITE_API_BASE_URL` أو خادم Node.js منفصل لهذا المسار.
+
+ضع الأسرار التالية في Supabase Dashboard → Edge Functions → Secrets، وليس في GitHub:
+
+```text
+POLYGON_DEPOSIT_MASTER_SEED
+POLYGON_NETWORK
+POLYGON_RPC_URL
+POLYGON_TREASURY_ADDRESS
+POLYGON_USDT_ADDRESS
+```
+
+`SUPABASE_URL` و`SUPABASE_SERVICE_ROLE_KEY` متاحان كأسرار تشغيلية داخل Edge Functions. لا تضع Master Seed أو Service Role Key في الواجهة.
 
 بعد تسجيل الدخول، أرسل access token إلى الخادم:
 
