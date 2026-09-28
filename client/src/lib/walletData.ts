@@ -134,7 +134,18 @@ export async function loadOrCreatePolygonDepositAddress(): Promise<string> {
   const { data: profile, error: profileError } = await supabase.from("user_profiles").select("polygon_deposit_address").eq("user_id", session.user.id).maybeSingle();
   if (profileError) throw new Error(`تعذر تحميل عنوان إيداع Polygon: ${profileError.message}`);
   if (profile?.polygon_deposit_address) return profile.polygon_deposit_address;
-  throw new Error(error?.message ?? "لم يتم إعداد Edge Function لعناوين الإيداع بعد.");
+  let functionMessage = error?.message ?? "لم يتم إعداد Edge Function لعناوين الإيداع بعد.";
+  const response = (error as { context?: unknown } | null)?.context;
+  if (response instanceof Response) {
+    try {
+      const payload = await response.clone().json() as { error?: unknown; message?: unknown };
+      const detail = typeof payload.error === "string" ? payload.error : typeof payload.message === "string" ? payload.message : "";
+      if (detail) functionMessage = detail;
+    } catch {
+      // Keep the SDK message when the function response is not JSON.
+    }
+  }
+  throw new Error(`تعذر إنشاء عنوان إيداع Polygon: ${functionMessage}`);
 }
 
 export async function loadUserNotifications(userId: string): Promise<UserNotification[]> {
