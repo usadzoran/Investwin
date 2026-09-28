@@ -35,6 +35,8 @@ import {
   sendUsdt,
   SUPPORTED_CHAINS,
   switchToChain,
+  BNB_TREASURY_ADDRESS,
+  isValidEvmAddress,
 } from "@/lib/wallet";
 import {
   createUserDeposit,
@@ -84,7 +86,7 @@ export default function WalletPage({ embedded = false }: { embedded?: boolean; p
   const [provider, setProvider] = useState<Eip1193Provider | null>(null);
   const [source, setSource] = useState<WalletSource | null>(null);
   const [address, setAddress] = useState("");
-  const [activeChain, setActiveChain] = useState<ChainKey>("ethereum");
+  const [activeChain, setActiveChain] = useState<ChainKey>("bnb");
   const [snapshot, setSnapshot] = useState<Awaited<ReturnType<typeof getWalletSnapshot>> | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -93,8 +95,10 @@ export default function WalletPage({ embedded = false }: { embedded?: boolean; p
   const [amount, setAmount] = useState("");
   const [activePanel, setActivePanel] = useState<"invest" | "receive" | "send">("invest");
   const [depositHash, setDepositHash] = useState("");
+  const [depositAmount, setDepositAmount] = useState("");
   const [deposits, setDeposits] = useState<DepositRecord[]>([]);
   const [isCheckingDeposit, setIsCheckingDeposit] = useState(false);
+  const [isDepositing, setIsDepositing] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | undefined>();
 
@@ -285,6 +289,54 @@ export default function WalletPage({ embedded = false }: { embedded?: boolean; p
       toast.error(getWalletErrorMessage(error, "تعذر التحقق من المعاملة."));
     } finally {
       setIsCheckingDeposit(false);
+    }
+  };
+
+  const submitRealDeposit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!provider || !address) {
+      toast.error("اربط محفظتك أولاً.");
+      return;
+    }
+    if (!isValidEvmAddress(BNB_TREASURY_ADDRESS)) {
+      toast.error("لم يتم إعداد عنوان خزينة BNB للموقع بعد.");
+      return;
+    }
+    const value = Number(depositAmount);
+    if (!Number.isFinite(value) || value <= 0) {
+      toast.error("أدخل مبلغ USDT صحيحاً.");
+      return;
+    }
+
+    setIsDepositing(true);
+    try {
+      if (activeChain !== "bnb") {
+        await switchToChain(provider, "bnb");
+        setActiveChain("bnb");
+      }
+      const receipt = await sendUsdt(provider, "bnb", BNB_TREASURY_ADDRESS, depositAmount);
+      if (!receipt?.hash) throw new Error("لم يتم الحصول على رقم المعاملة.");
+      const status = receipt.status === 1 ? "completed" : "failed";
+      if (userId) {
+        const created = await createUserDeposit({
+          userId,
+          walletAddress: address,
+          chain: "bnb",
+          hash: receipt.hash,
+          status,
+          amount: value,
+        });
+        setDeposits((previous) => [created, ...previous]);
+      }
+      setDepositAmount("");
+      toast.success("تم تأكيد إيداع USDT على BNB Chain", {
+        description: `المعاملة: ${receipt.hash.slice(0, 16)}…`,
+      });
+      await refresh(provider, "bnb");
+    } catch (error) {
+      toast.error(getWalletErrorMessage(error, "تم رفض الإيداع أو تعذر إرساله."));
+    } finally {
+      setIsDepositing(false);
     }
   };
 
@@ -600,6 +652,22 @@ export default function WalletPage({ embedded = false }: { embedded?: boolean; p
                     <h2>استقبال USDT</h2>
                     <p>أرسل USDT إلى هذا العنوان باستخدام شبكة <strong>{chain.name}</strong> فقط.</p>
                   </div>
+                  <form className="send-panel real-deposit-panel" onSubmit={submitRealDeposit}>
+                    <div>
+                      <h3>إيداع للاستثمار في خزينة الموقع</h3>
+                      <p>يرسل الزر USDT من محفظتك المتصلة إلى خزينة الموقع على BNB Chain. ستراجع وتوقّع المعاملة داخل MetaMask.</p>
+                    </div>
+                    <label>
+                      المبلغ المراد إيداعه
+                      <input value={depositAmount} onChange={(event) => setDepositAmount(event.target.value)} placeholder="0.00" inputMode="decimal" dir="ltr" />
+                      <span className="input-unit">USDT</span>
+                    </label>
+                    <button className="wallet-send-button" type="submit" disabled={isDepositing || !isValidEvmAddress(BNB_TREASURY_ADDRESS)}>
+                      {isDepositing ? "بانتظار تأكيد MetaMask…" : <>إيداع USDT على BNB <ArrowDownToLine size={17} /></>}
+                    </button>
+                    {!isValidEvmAddress(BNB_TREASURY_ADDRESS) && <div className="network-warning"><TriangleAlert size={15} /><span>لم يتم إعداد عنوان خزينة الموقع بعد. لن يتم تمكين الزر.</span></div>}
+                    {isValidEvmAddress(BNB_TREASURY_ADDRESS) && <div className="network-warning"><ShieldCheck size={15} /><span>الخزينة: <code dir="ltr">{shortenAddress(BNB_TREASURY_ADDRESS)}</code>. تحقق من العنوان قبل توقيع المعاملة.</span></div>}
+                  </form>
                   <div className="receive-address">
                     <code>{address}</code>
                     <button onClick={() => copyText(address, "عنوان الاستقبال")}><Copy size={16} /> نسخ</button>

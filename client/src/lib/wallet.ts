@@ -62,6 +62,13 @@ export const SUPPORTED_CHAINS = {
 
 export type ChainKey = keyof typeof SUPPORTED_CHAINS;
 
+// Public destination only; never put a treasury private key in VITE_* variables.
+export const BNB_TREASURY_ADDRESS = ((import.meta.env.VITE_BNB_TREASURY_ADDRESS as string | undefined) ?? "").trim();
+
+export function isValidEvmAddress(address: string) {
+  return /^0x[a-fA-F0-9]{40}$/.test(address);
+}
+
 const ERC20_ABI = [
   "function balanceOf(address owner) view returns (uint256)",
   "function decimals() view returns (uint8)",
