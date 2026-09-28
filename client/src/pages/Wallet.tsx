@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { toast } from "sonner";
 import {
+  Bell,
   ArrowDownToLine,
   ArrowLeft,
   ArrowUpLeft,
@@ -55,6 +56,10 @@ import {
   saveUserInvestments,
   DAILY_WITHDRAWAL_LIMIT_USDT,
   getCentralWithdrawalSummary,
+  loadUserNotifications,
+  markNotificationRead,
+  subscribeToUserNotifications,
+  type UserNotification,
   type CentralWithdrawalSummary,
 } from "@/lib/walletData";
 
@@ -101,6 +106,7 @@ export default function WalletPage({ embedded = false }: { embedded?: boolean; p
   const [isDepositing, setIsDepositing] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | undefined>();
+  const [notifications, setNotifications] = useState<UserNotification[]>([]);
 
   // Investment State
   const [investAmount, setInvestAmount] = useState<string>("10");
@@ -152,6 +158,32 @@ export default function WalletPage({ embedded = false }: { embedded?: boolean; p
     });
     return () => { cancelled = true; };
   }, [navigate]);
+
+  useEffect(() => {
+    if (!userId) return undefined;
+    let cancelled = false;
+    void loadUserNotifications(userId).then((items) => {
+      if (!cancelled) setNotifications(items);
+    }).catch((error) => {
+      if (!cancelled) toast.error(error instanceof Error ? error.message : "تعذر تحميل الإشعارات.");
+    });
+    const unsubscribe = subscribeToUserNotifications(userId, (notification) => {
+      setNotifications((previous) => [notification, ...previous.filter((item) => item.id !== notification.id)].slice(0, 30));
+      toast.success(notification.title, { description: notification.body });
+    });
+    return () => { cancelled = true; unsubscribe(); };
+  }, [userId]);
+
+  const unreadNotifications = notifications.filter((notification) => !notification.is_read);
+  const handleNotificationRead = async (notification: UserNotification) => {
+    if (notification.is_read) return;
+    try {
+      await markNotificationRead(notification.id);
+      setNotifications((previous) => previous.map((item) => item.id === notification.id ? { ...item, is_read: true } : item));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "تعذر تحديث الإشعار.");
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -483,6 +515,14 @@ export default function WalletPage({ embedded = false }: { embedded?: boolean; p
           <div><div className="wallet-eyebrow"><ShieldCheck size={14} /> محفظتك غير الوصائية</div><h1>أرسل واستقبل <em>USDT.</em></h1><p>أموالك تبقى تحت سيطرتك. كل معاملة تحتاج موافقتك داخل المحفظة.</p></div>
           {provider && <button className="wallet-disconnect" onClick={disconnect}><LogOut size={15} /> فصل {connectionLabel}</button>}
         </div>
+
+        <section className="notification-center" aria-label="إشعارات المحفظة">
+          <div className="notification-center-heading">
+            <div><span className="wallet-eyebrow"><Bell size={14} /> إشعارات الحساب</span><h2>متابعة التحويلات والأرباح</h2></div>
+            <span className="notification-unread"><Bell size={14} /> {unreadNotifications.length} غير مقروء</span>
+          </div>
+          {notifications.length === 0 ? <p className="notification-empty">لا توجد إشعارات جديدة.</p> : <div className="notification-list">{notifications.slice(0, 5).map((notification) => <button type="button" className={`notification-item ${notification.is_read ? "read" : "unread"}`} key={notification.id} onClick={() => void handleNotificationRead(notification)}><span className="notification-icon"><Bell size={15} /></span><span><strong>{notification.title}</strong><small>{notification.body}</small><em>{new Date(notification.created_at).toLocaleString("ar-EG")}</em></span>{notification.tx_hash && <a href={`${SUPPORTED_CHAINS[notification.chain_key ?? "bnb"].explorer}/tx/${notification.tx_hash}`} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()}><ExternalLink size={14} /></a>}</button>)}</div>}
+        </section>
 
         {!provider ? (
           <section className="wallet-connect-card">

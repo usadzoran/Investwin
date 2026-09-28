@@ -6,6 +6,18 @@ export type DepositRecord = { id: string; hash: string; chain: ChainKey; status:
 
 export type AdminUser = { user_id: string; email: string | null; wallet_address: string | null; chain_key: ChainKey | null; created_at?: string };
 export type AdminTransferRecord = { id: string; recipient_address: string; chain_key: ChainKey; amount: number; status: string; tx_hash: string | null; created_at: string; admin_user_id?: string; recipient_user_id?: string | null };
+export type UserNotification = {
+  id: string;
+  user_id: string;
+  type: "payout_confirmed" | "deposit_confirmed" | "system";
+  title: string;
+  body: string;
+  tx_hash: string | null;
+  amount: number | null;
+  chain_key: ChainKey | null;
+  is_read: boolean;
+  created_at: string;
+};
 
 // Global persistent storage keys for seamless database fallback & real data persistence
 const STORAGE_PREFIX = "noura_db_";
@@ -113,6 +125,32 @@ export async function getCurrentUser() {
   return data.user;
 }
 
+export async function loadUserNotifications(userId: string): Promise<UserNotification[]> {
+  const { data, error } = await supabase
+    .from("user_notifications")
+    .select("id,user_id,type,title,body,tx_hash,amount,chain_key,is_read,created_at")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(30);
+  if (error) throw new Error(`تعذر تحميل الإشعارات: ${error.message}`);
+  return (data ?? []) as UserNotification[];
+}
+
+export async function markNotificationRead(notificationId: string) {
+  const { error } = await supabase.from("user_notifications").update({ is_read: true }).eq("id", notificationId);
+  if (error) throw new Error(`تعذر تحديث الإشعار: ${error.message}`);
+}
+
+export function subscribeToUserNotifications(userId: string, onNotification: (notification: UserNotification) => void) {
+  const channel = supabase
+    .channel(`user-notifications:${userId}`)
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "user_notifications", filter: `user_id=eq.${userId}` }, (payload) => {
+      onNotification(payload.new as UserNotification);
+    })
+    .subscribe();
+  return () => { void supabase.removeChannel(channel); };
+}
+
 export async function syncUserWallet(userId: string, email: string | undefined, walletAddress: string, chain: ChainKey) {
   const now = new Date().toISOString();
   const { error } = await supabase.from("user_profiles").upsert(
@@ -213,6 +251,18 @@ export async function recordAdminTransfer(input: {
     status: input.status ?? "confirmed",
   }).select("id,recipient_address,chain_key,amount,status,tx_hash,created_at").single();
   if (error) throw new Error(`تعذر تسجيل تحويل الأدمن: ${error.message}`);
+  if (input.recipientUserId) {
+    const { error: notificationError } = await supabase.from("user_notifications").insert({
+      user_id: input.recipientUserId,
+      type: "payout_confirmed",
+      title: "تم إرسال فائدتك اليومية",
+      body: `أرسل الأدمن ${input.amount.toFixed(2)} USDT إلى محفظتك على ${input.chain === "bnb" ? "BNB Chain" : input.chain}.`,
+      tx_hash: input.txHash,
+      amount: input.amount,
+      chain_key: input.chain,
+    });
+    if (notificationError) console.error("Payout notification creation failed:", notificationError);
+  }
   return data as AdminTransferRecord;
 }
 
