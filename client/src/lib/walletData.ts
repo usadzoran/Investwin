@@ -617,6 +617,31 @@ export async function fetchAllAdminTransfers(): Promise<AdminTransferRecord[]> {
   }
 }
 
+export type PolygonTreasuryStats = {
+  network: string;
+  chain_id: number;
+  treasury_address: string;
+  token_address: string;
+  usdt_balance: string;
+  native_balance: string;
+  total_deposits: string;
+  total_interest_distributed: string;
+  deposit_count: number;
+  confirmed_transfer_count: number;
+};
+
+export async function fetchPolygonTreasuryStats(): Promise<PolygonTreasuryStats> {
+  const apiBase = ((import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "").trim().replace(/\/$/, "");
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error("انتهت جلسة الأدمن.");
+  const response = await fetch(`${apiBase}/api/admin/polygon/treasury-stats`, {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  });
+  const result = await response.json() as { error?: string } & Partial<PolygonTreasuryStats>;
+  if (!response.ok) throw new Error(result.error ?? "تعذر تحميل إحصاءات الخزينة.");
+  return result as PolygonTreasuryStats;
+}
+
 export function fetchAllAdminInvestments(): InvestmentPlan[] {
   const all = safeJsonParse<InvestmentPlan[]>(INVESTMENTS_STORAGE_KEY, []);
   return all;

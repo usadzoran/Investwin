@@ -5,6 +5,7 @@ import { fileURLToPath } from "url";
 import { createClient } from "@supabase/supabase-js";
 import { getOrCreatePolygonDepositAddress, isValidSupabaseBearerToken } from "./deposit-address.js";
 import { sweepPolygonUsdt } from "./polygon-sweep.js";
+import { getPolygonTreasuryStats } from "./treasury-stats.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -81,6 +82,27 @@ async function startServer() {
     } catch (error) {
       console.error("Polygon sweep error", error);
       res.status(400).json({ error: error instanceof Error ? error.message : "Sweep failed" });
+    }
+  });
+
+  app.get("/api/admin/polygon/treasury-stats", async (req, res) => {
+    const authorization = req.header("authorization");
+    if (!authClient || !isValidSupabaseBearerToken(authorization)) {
+      res.status(401).json({ error: "Authentication required" });
+      return;
+    }
+    try {
+      const token = authorization!.replace(/^Bearer\s+/i, "");
+      const { data, error } = await authClient.auth.getUser(token);
+      if (error || !data.user) { res.status(401).json({ error: "Invalid or expired session" }); return; }
+      const { data: admin, error: adminError } = await authClient.from("admin_users")
+        .select("user_id").eq("user_id", data.user.id).eq("is_active", true).maybeSingle();
+      if (adminError || !admin) { res.status(403).json({ error: "Admin permission required" }); return; }
+      res.setHeader("Cache-Control", "no-store");
+      res.json(await getPolygonTreasuryStats());
+    } catch (error) {
+      console.error("Polygon treasury stats error", error);
+      res.status(500).json({ error: "Unable to load Polygon treasury statistics" });
     }
   });
 

@@ -46,6 +46,7 @@ import {
   fetchAllAdminInvestments,
   fetchAllAdminTransfers,
   fetchAllAdminUsers,
+  fetchPolygonTreasuryStats,
   getPlanEarningsInfo,
   recordAdminTransfer,
   syncUserWallet,
@@ -55,6 +56,7 @@ import {
   type DepositRecord,
   type DepositStatus,
   type InvestmentPlan,
+  type PolygonTreasuryStats,
 } from "@/lib/walletData";
 
 const chainKeys = Object.keys(SUPPORTED_CHAINS) as ChainKey[];
@@ -85,6 +87,7 @@ export default function AdminPage() {
   const [deposits, setDeposits] = useState<DepositRecord[]>([]);
   const [transfers, setTransfers] = useState<AdminTransferRecord[]>([]);
   const [investments, setInvestments] = useState<InvestmentPlan[]>([]);
+  const [polygonTreasuryStats, setPolygonTreasuryStats] = useState<PolygonTreasuryStats | null>(null);
   
   // Database Health State
   const [dbHealth, setDbHealth] = useState<{
@@ -164,12 +167,13 @@ export default function AdminPage() {
       setIsAdmin(true);
 
       // 2. Fetch database status and records
-      const [health, usersList, depositsList, transfersList, investmentsList] = await Promise.all([
+      const [health, usersList, depositsList, transfersList, investmentsList, polygonStats] = await Promise.all([
         checkDatabaseHealth(),
         fetchAllAdminUsers(),
         fetchAllAdminDeposits(),
         fetchAllAdminTransfers(),
         Promise.resolve(fetchAllAdminInvestments()),
+        fetchPolygonTreasuryStats().catch(() => null),
       ]);
 
       setDbHealth(health);
@@ -177,6 +181,7 @@ export default function AdminPage() {
       setDeposits(depositsList);
       setTransfers(transfersList);
       setInvestments(investmentsList);
+      setPolygonTreasuryStats(polygonStats);
     } catch (err) {
       console.error("Admin data loading error", err);
       toast.error("حدث خطأ أثناء تحميل بيانات الإدارة");
@@ -634,6 +639,27 @@ create table if not exists public.wallet_transfers (
             <small>رصيد USDT على BNB</small>
             <strong>{treasurySnapshot?.wrongNetwork ? "شبكة خاطئة" : treasurySnapshot?.usdtBalance ?? "—"} <span>USDT</span></strong>
             <small>الرصيد الأصلي: {treasurySnapshot?.nativeBalance ?? "—"} BNB</small>
+          </div>
+        </section>
+
+        <section className="admin-stats admin-polygon-stats">
+          <div className="stat-card">
+            <WalletCards size={20} />
+            <span>رصيد خزينة Polygon</span>
+            <strong>{polygonTreasuryStats?.usdt_balance ?? "—"} USDT</strong>
+            <small>{polygonTreasuryStats ? `${shorten(polygonTreasuryStats.treasury_address)} · ${polygonTreasuryStats.native_balance} POL/MATIC` : "يتطلب تشغيل Backend وRPC"}</small>
+          </div>
+          <div className="stat-card">
+            <TrendingUp size={20} />
+            <span>إجمالي إيداعات Polygon</span>
+            <strong>{polygonTreasuryStats?.total_deposits ?? "—"} USDT</strong>
+            <small>{polygonTreasuryStats?.deposit_count ?? 0} معاملات مؤكدة</small>
+          </div>
+          <div className="stat-card">
+            <Flame size={20} />
+            <span>إجمالي الفوائد الموزعة</span>
+            <strong>{polygonTreasuryStats?.total_interest_distributed ?? "—"} USDT</strong>
+            <small>{polygonTreasuryStats?.confirmed_transfer_count ?? 0} تحويلات مؤكدة من الأدمن</small>
           </div>
         </section>
 
