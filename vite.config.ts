@@ -206,7 +206,9 @@ function vitePluginStorageProxy(): Plugin {
 const plugins = [react(), tailwindcss(), jsxLocPlugin(), vitePluginManusRuntime(), vitePluginManusDebugCollector(), vitePluginStorageProxy()];
 
 export default defineConfig(({ command }) => ({
-  base: command === "build" ? "/Investwin/" : "/",
+  // GitHub Pages serves the app below /Investwin/. Use an explicit CI flag so
+  // the deployed Router and asset URLs cannot silently fall back to the domain root.
+  base: process.env.VITE_GITHUB_PAGES === "true" ? "/Investwin/" : command === "build" ? "/Investwin/" : "/",
   plugins,
   resolve: {
     alias: {
