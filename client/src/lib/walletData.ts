@@ -157,35 +157,27 @@ export type CustodialWallet = {
 };
 
 export async function loadCustodialWallet(): Promise<CustodialWallet> {
-  const user = await getCurrentUser();
-  const [{ data: profile, error: profileError }, { data: balance, error: balanceError }] = await Promise.all([
-    supabase.from("user_profiles").select("polygon_deposit_address,polygon_withdrawal_address").eq("user_id", user.id).maybeSingle(),
-    supabase.from("custodial_wallet_balances").select("available,pending,network").eq("user_id", user.id).maybeSingle(),
-  ]);
-  if (profileError) throw new Error(`تعذر تحميل عناوين محفظتك: ${profileError.message}`);
-  if (balanceError) throw new Error(`تعذر تحميل رصيد محفظتك: ${balanceError.message}`);
+  const { data, error } = await supabase.functions.invoke("polygon-backend", { body: { action: "custodial-wallet" } });
+  if (error) throw new Error(error.message);
   return {
-    depositAddress: profile?.polygon_deposit_address ?? null,
-    withdrawalAddress: profile?.polygon_withdrawal_address ?? null,
-    available: Number(balance?.available ?? 0),
-    pending: Number(balance?.pending ?? 0),
+    depositAddress: data?.deposit_address ?? null,
+    withdrawalAddress: data?.withdrawal_address ?? null,
+    available: Number(data?.available ?? 0),
+    pending: Number(data?.pending ?? 0),
     network: "polygon",
   };
 }
 
 export async function saveCustodialWithdrawalAddress(address: string) {
-  const { data, error } = await supabase.rpc("set_polygon_withdrawal_address", { p_address: address.trim() });
+  const { data, error } = await supabase.functions.invoke("polygon-backend", { body: { action: "set-withdrawal-address", address: address.trim() } });
   if (error) throw new Error(error.message);
-  return String(data);
+  return String(data?.withdrawal_address);
 }
 
 export async function requestCustodialWithdrawal(amount: string) {
-  const { data, error } = await supabase.rpc("create_polygon_withdrawal", {
-    p_amount: amount,
-    p_idempotency_key: crypto.randomUUID(),
-  });
+  const { data, error } = await supabase.functions.invoke("polygon-backend", { body: { action: "create-withdrawal", amount, idempotency_key: crypto.randomUUID() } });
   if (error) throw new Error(error.message);
-  const row = Array.isArray(data) ? data[0] : data;
+  const row = data;
   if (!row?.withdrawal_id) throw new Error("تعذر إنشاء طلب السحب.");
   return row as { withdrawal_id: string; status: string; available: number; pending: number; destination_address: string };
 }
