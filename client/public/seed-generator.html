@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>مولد سر Polygon | Noura</title>
+<style>body{font-family:system-ui;max-width:680px;margin:30px auto;padding:20px;background:#f8fafc;color:#172033}button{font-size:18px;padding:14px 18px;margin:8px 0;border:0;border-radius:10px;background:#0f766e;color:white;width:100%}textarea{width:100%;box-sizing:border-box;min-height:120px;font:16px monospace;padding:12px;border:1px solid #cbd5e1;border-radius:10px;direction:ltr}.note{background:#fff7ed;padding:14px;border-radius:10px;line-height:1.7}.warning{background:#fee2e2;padding:14px;border-radius:10px;line-height:1.7;margin-top:14px}small{color:#475569}</style>
+<h1>مولّد POLYGON_DEPOSIT_MASTER_SEED</h1>
+<div class="note">تُولَّد القيمة داخل هاتفك باستخدام Web Crypto. لا تُرسل القيمة إلى هذه الصفحة أو إلى أي خادم. انسخها إلى Supabase فقط.</div>
+<button id="generate">توليد قيمة جديدة</button>
+<textarea id="value" readonly placeholder="اضغط توليد"></textarea>
+<button id="copy" disabled>نسخ القيمة</button>
+<p id="status"><small>يجب أن تكون القيمة 64 خانة hex.</small></p>
+<div class="warning">تنبيه: لا تشارك هذه القيمة في المحادثة أو مع أي شخص. استخدمها فقط في Secret باسم <code>POLYGON_DEPOSIT_MASTER_SEED</code> داخل مشروع Supabase الصحيح.</div>
+<script>
+const value=document.querySelector('#value'),copy=document.querySelector('#copy'),status=document.querySelector('#status');
+function generate(){const bytes=new Uint8Array(32);crypto.getRandomValues(bytes);value.value=[...bytes].map(x=>x.toString(16).padStart(2,'0')).join('');copy.disabled=false;status.textContent='تم التوليد محليًا: '+value.value.length+' خانة. لا تشاركها في المحادثة.';}
+document.querySelector('#generate').onclick=generate;
+copy.onclick=async()=>{await navigator.clipboard.writeText(value.value);status.textContent='تم النسخ. ألصقها في Value داخل Supabase ثم احذفها من الحافظة بعد الحفظ.';};
+</script>
+</html>
