@@ -80,16 +80,16 @@ async function custodialWallet(req: Request) {
 async function setWithdrawalAddress(req: Request, body: Record<string, unknown>) {
   const user = await requireUser(req);
   const address = typeof body.address === "string" ? body.address.trim() : "";
-  const { data, error } = await admin().rpc("set_polygon_withdrawal_address", { p_address: address });
+  const { data, error } = await admin().rpc("set_polygon_withdrawal_address", { p_user_id: user.id, p_address: address });
   if (error) throw new Error(error.message);
   return { user_id: user.id, withdrawal_address: data };
 }
 
 async function createWithdrawal(req: Request, body: Record<string, unknown>) {
-  await requireUser(req);
+  const user = await requireUser(req);
   const amount = typeof body.amount === "string" || typeof body.amount === "number" ? body.amount : null;
   const key = typeof body.idempotency_key === "string" ? body.idempotency_key : crypto.randomUUID();
-  const { data, error } = await admin().rpc("create_polygon_withdrawal", { p_amount: amount, p_idempotency_key: key });
+  const { data, error } = await admin().rpc("create_polygon_withdrawal", { p_user_id: user.id, p_amount: amount, p_idempotency_key: key });
   if (error) throw new Error(error.message);
   const row = Array.isArray(data) ? data[0] : data;
   if (!row?.withdrawal_id) throw new Error("Withdrawal request was not created");

@@ -1,3 +1,4 @@
+-- Investwin: manual patch for the complete custodial Polygon wallet migration
 -- Investwin: complete Polygon-only custodial USDT wallet migration
 -- Safe to run after setup.sql, polygon_deposit_addresses.sql, and polygon_indexer.sql.
 
