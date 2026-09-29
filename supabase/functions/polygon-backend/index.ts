@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.117.2";
-import { HDNodeWallet, JsonRpcProvider, Contract, formatUnits, getAddress } from "npm:ethers@6.17.0";
+import { HDNodeWallet, JsonRpcProvider, Contract, formatUnits, getAddress, getBytes } from "npm:ethers@6.17.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -38,8 +38,12 @@ async function depositAddress(req: Request) {
   const { data: profile, error } = await db.from("user_profiles").select("polygon_deposit_address,polygon_deposit_derivation_index").eq("user_id", user.id).maybeSingle();
   if (error) throw new Error(error.message);
   if (profile?.polygon_deposit_address) return { network: `polygon-${network().name}`, chain_id: network().chainId, wallet_address: getAddress(profile.polygon_deposit_address), wallet_derivation_index: profile.polygon_deposit_derivation_index, claimed: false };
-  const phrase = env("POLYGON_DEPOSIT_MASTER_SEED");
-  const master = HDNodeWallet.fromPhrase(phrase, undefined, "m/44'/60'/0'/0");
+  const seed = env("POLYGON_DEPOSIT_MASTER_SEED");
+  // Accept either a BIP-39 mnemonic (12/24 words) or a 32-byte hex seed
+  // stored only in Supabase Function Secrets. Never expose this value to clients.
+  const master = /^(0x)?[0-9a-fA-F]{64}$/.test(seed)
+    ? HDNodeWallet.fromSeed(getBytes(seed.startsWith("0x") ? seed : `0x${seed}`)).derivePath("m/44'/60'/0'/0")
+    : HDNodeWallet.fromPhrase(seed, undefined, "m/44'/60'/0'/0");
   // Deterministic per-user starting point; the SQL unique index handles collisions.
   const digest = new TextEncoder().encode(user.id);
   const hash = await crypto.subtle.digest("SHA-256", digest);
