@@ -41,9 +41,19 @@ async function depositAddress(req: Request) {
   const seed = env("POLYGON_DEPOSIT_MASTER_SEED");
   // Accept either a BIP-39 mnemonic (12/24 words) or a 32-byte hex seed
   // stored only in Supabase Function Secrets. Never expose this value to clients.
-  const master = /^(0x)?[0-9a-fA-F]{64}$/.test(seed)
-    ? HDNodeWallet.fromSeed(getBytes(seed.startsWith("0x") ? seed : `0x${seed}`)).derivePath("m/44'/60'/0'/0")
-    : HDNodeWallet.fromPhrase(seed, undefined, "m/44'/60'/0'/0");
+  const normalizedHexSeed = seed.replace(/^0x/i, "");
+  const isHexSeed = /^[0-9a-fA-F]+$/.test(normalizedHexSeed)
+    && normalizedHexSeed.length >= 32
+    && normalizedHexSeed.length <= 128
+    && normalizedHexSeed.length % 2 === 0;
+  let master: HDNodeWallet;
+  try {
+    master = isHexSeed
+      ? HDNodeWallet.fromSeed(getBytes(`0x${normalizedHexSeed}`)).derivePath("m/44'/60'/0'/0")
+      : HDNodeWallet.fromPhrase(seed, undefined, "m/44'/60'/0'/0");
+  } catch {
+    throw new Error("Invalid POLYGON_DEPOSIT_MASTER_SEED: use a 12/24-word BIP-39 phrase or hexadecimal seed of 16-64 bytes");
+  }
   // Deterministic per-user starting point; the SQL unique index handles collisions.
   const digest = new TextEncoder().encode(user.id);
   const hash = await crypto.subtle.digest("SHA-256", digest);
