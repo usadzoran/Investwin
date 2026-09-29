@@ -57,11 +57,15 @@ import {
   DAILY_WITHDRAWAL_LIMIT_USDT,
   getCentralWithdrawalSummary,
   loadOrCreatePolygonDepositAddress,
+  loadCustodialWallet,
+  saveCustodialWithdrawalAddress,
+  requestCustodialWithdrawal,
   loadUserNotifications,
   markNotificationRead,
   subscribeToUserNotifications,
   type UserNotification,
   type CentralWithdrawalSummary,
+  type CustodialWallet,
 } from "@/lib/walletData";
 
 const chainKeys = Object.keys(SUPPORTED_CHAINS) as ChainKey[];
@@ -108,6 +112,11 @@ export default function WalletPage({ embedded = false }: { embedded?: boolean; p
   const [depositAddress, setDepositAddress] = useState("");
   const [isLoadingDepositAddress, setIsLoadingDepositAddress] = useState(false);
   const [depositAddressError, setDepositAddressError] = useState("");
+  const [custodialWallet, setCustodialWallet] = useState<CustodialWallet | null>(null);
+  const [withdrawalAddressInput, setWithdrawalAddressInput] = useState("");
+  const [withdrawalAmountInput, setWithdrawalAmountInput] = useState("");
+  const [isSavingWithdrawalAddress, setIsSavingWithdrawalAddress] = useState(false);
+  const [isRequestingCustodialWithdrawal, setIsRequestingCustodialWithdrawal] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | undefined>();
   const [notifications, setNotifications] = useState<UserNotification[]>([]);
@@ -144,6 +153,19 @@ export default function WalletPage({ embedded = false }: { embedded?: boolean; p
       }
     }).finally(() => {
       if (!cancelled) setIsLoadingDepositAddress(false);
+    });
+    return () => { cancelled = true; };
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId) return undefined;
+    let cancelled = false;
+    void loadCustodialWallet().then((wallet) => {
+      if (cancelled) return;
+      setCustodialWallet(wallet);
+      setWithdrawalAddressInput(wallet.withdrawalAddress ?? "");
+    }).catch((error) => {
+      if (!cancelled) toast.error(error instanceof Error ? error.message : "تعذر تحميل المحفظة الاحتجازية.");
     });
     return () => { cancelled = true; };
   }, [userId]);
@@ -250,6 +272,53 @@ export default function WalletPage({ embedded = false }: { embedded?: boolean; p
       toast.error("حدث خطأ أثناء بدء خطة الاستثمار.");
     } finally {
       setIsStartingPlan(false);
+    }
+  };
+
+  const handleSaveWithdrawalAddress = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!isValidEvmAddress(withdrawalAddressInput)) {
+      toast.error("أدخل عنوان Polygon صحيحاً يبدأ بـ 0x.");
+      return;
+    }
+    setIsSavingWithdrawalAddress(true);
+    try {
+      const saved = await saveCustodialWithdrawalAddress(withdrawalAddressInput);
+      setWithdrawalAddressInput(saved);
+      setCustodialWallet((previous) => previous ? { ...previous, withdrawalAddress: saved } : previous);
+      toast.success("تم حفظ عنوان السحب على Polygon.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "تعذر حفظ عنوان السحب.");
+    } finally {
+      setIsSavingWithdrawalAddress(false);
+    }
+  };
+
+  const handleRequestCustodialWithdrawal = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const value = Number(withdrawalAmountInput);
+    if (!Number.isFinite(value) || value <= 0) {
+      toast.error("أدخل مبلغ USDT صحيحاً.");
+      return;
+    }
+    if (!custodialWallet?.withdrawalAddress) {
+      toast.error("احفظ عنوان السحب أولاً.");
+      return;
+    }
+    if (value > custodialWallet.available) {
+      toast.error("الرصيد المتاح غير كافٍ.");
+      return;
+    }
+    setIsRequestingCustodialWithdrawal(true);
+    try {
+      const result = await requestCustodialWithdrawal(withdrawalAmountInput);
+      setCustodialWallet((previous) => previous ? { ...previous, available: Number(result.available), pending: Number(result.pending) } : previous);
+      setWithdrawalAmountInput("");
+      toast.success("تم إنشاء طلب السحب ووضعه قيد المعالجة على Polygon.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "تعذر إنشاء طلب السحب.");
+    } finally {
+      setIsRequestingCustodialWithdrawal(false);
     }
   };
 
@@ -555,6 +624,21 @@ export default function WalletPage({ embedded = false }: { embedded?: boolean; p
               <code dir="ltr">{isLoadingDepositAddress ? "جارٍ تحميل عنوان الإيداع…" : depositAddress || "عنوان الإيداع غير متاح"}</code>
               <button disabled={!depositAddress} onClick={() => copyText(depositAddress, "عنوان محفظتك الداخلية")}><Copy size={16} /> نسخ العنوان</button>
             </div>
+            <div className="wallet-balance-preview"><div><small>الرصيد المتاح</small><strong>{(custodialWallet?.available ?? 0).toLocaleString("en-US", { maximumFractionDigits: 6 })} <span>USDT</span></strong></div><span>قيد المعالجة: {(custodialWallet?.pending ?? 0).toLocaleString("en-US", { maximumFractionDigits: 6 })} USDT</span></div>
+            <form className="send-panel" onSubmit={handleSaveWithdrawalAddress}>
+              <label>عنوان السحب الخارجي على Polygon
+                <input value={withdrawalAddressInput} onChange={(event) => setWithdrawalAddressInput(event.target.value)} placeholder="0x..." dir="ltr" inputMode="text" required />
+              </label>
+              <button className="wallet-send-button" type="submit" disabled={isSavingWithdrawalAddress}>{isSavingWithdrawalAddress ? "جارٍ الحفظ…" : "حفظ عنوان السحب"} <Check size={17} /></button>
+            </form>
+            <form className="send-panel" onSubmit={handleRequestCustodialWithdrawal}>
+              <label>مبلغ السحب من الرصيد الداخلي
+                <input value={withdrawalAmountInput} onChange={(event) => setWithdrawalAmountInput(event.target.value)} placeholder="0.00" dir="ltr" inputMode="decimal" required />
+                <span className="input-unit">USDT</span>
+              </label>
+              <button className="wallet-send-button" type="submit" disabled={isRequestingCustodialWithdrawal || !custodialWallet?.withdrawalAddress}>{isRequestingCustodialWithdrawal ? "جارٍ إنشاء الطلب…" : "طلب سحب USDT"} <ArrowUpRight size={17} /></button>
+              <div className="network-warning"><ShieldCheck size={15} /><span>السحب يتم إلى العنوان المحفوظ فقط، وبعد حجز الرصيد ومراجعته من الخادم.</span></div>
+            </form>
             <div className="wallet-balance-preview"><div><small>الإيداعات المكتملة</small><strong>{completedDepositTotal.toLocaleString("en-US", { maximumFractionDigits: 4 })} <span>USDT</span></strong></div><span>الشبكة المعتمدة: Polygon فقط</span></div>
             <div className="wallet-safety-note"><ShieldCheck size={15} /> استخدم هذا العنوان فقط مع شبكة Polygon. لا ترسل TRC20 أو ERC20 أو BNB Chain إلى هذا العنوان.</div>
             {depositAddressError && <div className="network-warning"><TriangleAlert size={15} /><span>{depositAddressError}</span></div>}
@@ -719,22 +803,7 @@ export default function WalletPage({ embedded = false }: { embedded?: boolean; p
                     <h2>استقبال USDT</h2>
                     <p>هذا عنوان إيداعك الفريد. أرسل USDT باستخدام شبكة <strong>Polygon</strong> فقط.</p>
                   </div>
-                  <form className="send-panel real-deposit-panel" onSubmit={submitRealDeposit}>
-                    <div>
-                      <h3>إيداع للاستثمار في خزينة الموقع</h3>
-                      <p>يرسل الزر USDT من محفظتك المتصلة إلى خزينة الموقع على BNB Chain. ستراجع وتوقّع المعاملة داخل MetaMask.</p>
-                    </div>
-                    <label>
-                      المبلغ المراد إيداعه
-                      <input value={depositAmount} onChange={(event) => setDepositAmount(event.target.value)} placeholder="0.00" inputMode="decimal" dir="ltr" />
-                      <span className="input-unit">USDT</span>
-                    </label>
-                    <button className="wallet-send-button" type="submit" disabled={isDepositing || !isValidEvmAddress(BNB_TREASURY_ADDRESS)}>
-                      {isDepositing ? "بانتظار تأكيد MetaMask…" : <>إيداع USDT على BNB <ArrowDownToLine size={17} /></>}
-                    </button>
-                    {!isValidEvmAddress(BNB_TREASURY_ADDRESS) && <div className="network-warning"><TriangleAlert size={15} /><span>لم يتم إعداد عنوان خزينة الموقع بعد. لن يتم تمكين الزر.</span></div>}
-                    {isValidEvmAddress(BNB_TREASURY_ADDRESS) && <div className="network-warning"><ShieldCheck size={15} /><span>الخزينة: <code dir="ltr">{shortenAddress(BNB_TREASURY_ADDRESS)}</code>. تحقق من العنوان قبل توقيع المعاملة.</span></div>}
-                  </form>
+                  <div className="external-deposit-card"><strong>الإيداع الاحتجازي على Polygon</strong><p>أرسل USDT إلى عنوان الإيداع أعلاه من منصة أو محفظة خارجية. سيؤكد العامل المعاملة بعد التأكيدات المطلوبة ويضيفها إلى رصيدك الداخلي.</p></div>
                   <div className="receive-address">
                     <code dir="ltr">{isLoadingDepositAddress ? "جارٍ تحميل عنوان الإيداع…" : depositAddress || "عنوان الإيداع غير متاح"}</code>
                     <button disabled={!depositAddress} onClick={() => copyText(depositAddress, "عنوان الإيداع")}><Copy size={16} /> نسخ</button>

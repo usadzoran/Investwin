@@ -148,6 +148,48 @@ export async function loadOrCreatePolygonDepositAddress(): Promise<string> {
   throw new Error(`تعذر إنشاء عنوان إيداع Polygon: ${functionMessage}`);
 }
 
+export type CustodialWallet = {
+  depositAddress: string | null;
+  withdrawalAddress: string | null;
+  available: number;
+  pending: number;
+  network: "polygon";
+};
+
+export async function loadCustodialWallet(): Promise<CustodialWallet> {
+  const user = await getCurrentUser();
+  const [{ data: profile, error: profileError }, { data: balance, error: balanceError }] = await Promise.all([
+    supabase.from("user_profiles").select("polygon_deposit_address,polygon_withdrawal_address").eq("user_id", user.id).maybeSingle(),
+    supabase.from("custodial_wallet_balances").select("available,pending,network").eq("user_id", user.id).maybeSingle(),
+  ]);
+  if (profileError) throw new Error(`تعذر تحميل عناوين محفظتك: ${profileError.message}`);
+  if (balanceError) throw new Error(`تعذر تحميل رصيد محفظتك: ${balanceError.message}`);
+  return {
+    depositAddress: profile?.polygon_deposit_address ?? null,
+    withdrawalAddress: profile?.polygon_withdrawal_address ?? null,
+    available: Number(balance?.available ?? 0),
+    pending: Number(balance?.pending ?? 0),
+    network: "polygon",
+  };
+}
+
+export async function saveCustodialWithdrawalAddress(address: string) {
+  const { data, error } = await supabase.rpc("set_polygon_withdrawal_address", { p_address: address.trim() });
+  if (error) throw new Error(error.message);
+  return String(data);
+}
+
+export async function requestCustodialWithdrawal(amount: string) {
+  const { data, error } = await supabase.rpc("create_polygon_withdrawal", {
+    p_amount: amount,
+    p_idempotency_key: crypto.randomUUID(),
+  });
+  if (error) throw new Error(error.message);
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row?.withdrawal_id) throw new Error("تعذر إنشاء طلب السحب.");
+  return row as { withdrawal_id: string; status: string; available: number; pending: number; destination_address: string };
+}
+
 export async function loadUserNotifications(userId: string): Promise<UserNotification[]> {
   const { data, error } = await supabase
     .from("user_notifications")

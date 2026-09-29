@@ -81,6 +81,14 @@ async function scanOnce() {
       p_block_number: log.blockNumber,
     });
     if (error) throw new Error(`Unable to credit ${log.transactionHash}: ${error.message}`);
+    const { error: custodialError } = await supabase.rpc("record_polygon_custodial_deposit", {
+      p_user_id: profile.user_id,
+      p_amount: amount,
+      p_tx_hash: log.transactionHash,
+      p_log_index: Number(log.index ?? 0),
+      p_metadata: { block_number: log.blockNumber, token_address: tokenAddress.toLowerCase(), deposit_address: profile.polygon_deposit_address },
+    });
+    if (custodialError) throw new Error(`Unable to credit custodial balance for ${log.transactionHash}: ${custodialError.message}`);
     if (data === true) {
       credited += 1;
       console.log(JSON.stringify({ event: "deposit_credited", network, user_id: profile.user_id, address: profile.polygon_deposit_address, amount, tx_hash: log.transactionHash, block: log.blockNumber }));
